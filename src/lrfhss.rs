@@ -1,0 +1,69 @@
+//! # API related to LR-FHSS operations
+//!
+//! This module provides an API for configuring and operating the LR1120 chip for LR-FHSS (Long Range Frequency Hopping Spread Spectrum) modulation.
+//! LR-FHSS is a modulation scheme designed for long-range, low-power communication with high interference resistance through frequency hopping.
+//! It is particularly useful for regulatory compliance (e.g., FCC) and applications requiring robust communication in noisy environments.
+//!
+//! ## Quick Start
+//!
+//! Here's a typical sequence to initialize the chip for LR-FHSS operations:
+//!
+//! ```rust,no_run
+//! use lr1120::radio::PacketType;
+//! use lr1120::lrfhss::{LrfhssCr, Grid, Hopping, LrfhssBw};
+//!
+//! // Set packet type to LR-FHSS
+//! lr1120.set_packet_type(PacketType::LrFhss).await.expect("Setting packet type");
+//!
+//! // Configure syncword (default is 0x2C0F7995)
+//! lr1120.set_lrfhss_syncword(0x2C0F7995).await.expect("Setting syncword");
+//!
+//! // Build LR-FHSS packet with payload
+//! let payload = b"Hello, LR-FHSS!";
+//! lr1120.lrfhss_build_packet(
+//!     1,                      // Sync header count
+//!     LrfhssCr::Cr5p6,        // Coding rate: 5/6
+//!     Grid::Grid25,           // Frequency grid: 25.39kHz
+//!     Hopping::HoppingEnabled, // Enable intra-packet hopping
+//!     LrfhssBw::Bw1523p4,     // Bandwidth: 1523.4kHz (FCC use case)
+//!     0,                      // Hop sequence
+//!     0,                      // Device Frequency offset
+//!     pld                     // Payload
+//! ).await.expect("Building LR-FHSS packet");
+//!
+//! // Transmit the packet
+//! lr1120.set_tx(0).await.expect("Starting transmission");
+//! ```
+//!
+//! ## Available Methods
+//!
+//! ### Core Configuration
+//! - [`lrfhss_build_packet`](Lr1120::lrfhss_build_packet) - Encode payload and configure internal hopping table for LR-FHSS transmission
+//! - [`set_lrfhss_syncword`](Lr1120::set_lrfhss_syncword) - Configure LR-FHSS syncword (4 bytes, default: 0x2C0F7995)
+
+use embedded_hal::digital::OutputPin;
+use embedded_hal_async::spi::SpiBus;
+
+pub use super::cmd::cmd_lrfhss::*;
+use super::{BusyPin, Lr1120, Lr1120Error};
+
+impl<O,SPI, M> Lr1120<O,SPI, M> where
+    O: OutputPin, SPI: SpiBus<u8>, M: BusyPin
+{
+
+    // TODO: add dedicated struct and find a good default set of values (maybe 2-3 builder method)
+    #[allow(clippy::too_many_arguments)]
+    /// Prepare the LR-FHSS packet
+    pub async fn lrfhss_build_packet(&mut self, sync_header_cnt: u8, cr: LrfhssCr, grid: Grid, hopping: Hopping, bw: LrfhssBw, sequence: u16, offset: i8, pld: &[u8]) -> Result<(), Lr1120Error> {
+        let req = lr_fhss_build_frame_cmd(sync_header_cnt, cr, 0, grid, hopping, bw, sequence, offset);
+        self.cmd_data_wr(&req, pld).await
+    }
+
+    /// Configure Syncword of LRFHSS packet
+    /// Default value is 0x2C0F7995
+    pub async fn set_lrfhss_syncword(&mut self, syncword: u32) -> Result<(), Lr1120Error> {
+        let req = lr_fhss_set_sync_word_cmd(syncword);
+        self.cmd_wr(&req).await
+    }
+
+}

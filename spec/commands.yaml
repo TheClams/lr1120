@@ -1,0 +1,3145 @@
+categories:
+  crypto:
+    commands:
+      CryptoSetKey:
+        opcode: 1282
+        description: Sets a specific Key identified by KeyID into Crypto Engine. Key is 16-byte AES-128 key as defined in
+          FIPS-197.
+        parameters:
+        - name: key_id
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: 'Key identifier (2-27). See key usage table: 2: NwkKey, 3: AppKey, 4: JSEncKey, 5: JSIntKey, 6-11:
+            GpKEKey0-5, 12-15: Unicast keys (AppSKey, FNwkSIntKey, SNwkSIntKey, NwkSEncKey), 16-17: RFU, 18-25: Multicast
+            keys (McAppSKey0-3, McNwkSKey0-3), 26-27: GP0-1. Other values reserved.'
+        - name: key
+          bit_width: 0
+          byte_positions: []
+          description: '16-byte AES-128 key array. Example: Key K (2b7e151628aed2a6abf7158809cf4f3c) has Key1=0x2b, Key2=0x7e,
+            ... Key16=0x3c'
+        status_fields:
+        - name: ce_status
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
+      CryptoDeriveKey:
+        opcode: 1283
+        description: Derives (encrypts) input value into destination Key using source Key. Generated key stored in Crypto
+          Engine RAM - use CryptoStoreToFlash to persist. See LoRaWAN key derivation schemes in Ch 16.3-16.4.
+        parameters:
+        - name: src_key_id
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: Source Key ID (2-3, 6-11). See key usage table.
+        - name: dst_key_id
+          bit_width: 8
+          byte_positions:
+          - - 3
+            - '7:0'
+          description: Destination Key ID (4-25). See key usage table.
+        - name: input
+          bit_width: 0
+          byte_positions: []
+          description: '16-byte input array (Input[1:16]). For LoRaWAN, includes DevNonce and other parameters with padding.
+            Example: FNwkSIntKey = CryptoDeriveKey(NwkKey, 0x01 | JoinNonce | NetID | DevNonce | pad_16)'
+        status_fields:
+        - name: ce_status
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
+      CryptoProcessJoinAccept:
+        opcode: 1284
+        description: Decrypts join accept message (using AES-ECB encrypt per LoRaWAN spec) on Data and Header, then verifies
+          MIC. Returns decrypted data if MIC verification successful.
+        parameters:
+        - name: dec_key_id
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: Key ID for decryption. See key usage table.
+        - name: ver_key_id
+          bit_width: 8
+          byte_positions:
+          - - 3
+            - '7:0'
+          description: Key ID for MIC verification. See key usage table.
+        - name: lorawan_version
+          bit_width: 8
+          byte_positions:
+          - - 4
+            - '7:0'
+          description: 'Determines Header size: 0: LoRaWAN 1.0.x (1 byte MHDR), 1: LoRaWAN 1.1.x (12 bytes: SIntKey, JoinReqType,
+            JoinEUI, DevNonce, MHDR)'
+          enum:
+            LORAWAN_1_0: 0
+            LORAWAN_1_1: 1
+        - name: header
+          bit_width: 0
+          byte_positions: []
+          description: Variable length header (1 or 12 bytes depending on LoRaWANVer)
+        - name: data
+          bit_width: 0
+          byte_positions: []
+          description: Data to decrypt (16 or 32 bytes). Must include encrypted MIC.
+        status_fields:
+        - name: ce_status
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
+        - name: data
+          bit_width: 0
+          byte_positions: []
+          description: Decrypted data (16 or 32 bytes)
+      CryptoComputeAesCmac:
+        opcode: 1285
+        description: Computes AES CMAC of provided data using specified Key and returns MIC (first 4 bytes of CMAC). Maximum
+          data size 256 bytes.
+        parameters:
+        - name: key_id
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: Key ID (2, 5, 12-17). See key usage table.
+        - name: data
+          bit_width: 0
+          byte_positions: []
+          description: Data byte buffer (max 256 bytes)
+        status_fields:
+        - name: ce_status
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
+        - name: mic
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: Message Integrity Check (first 4 bytes of CMAC)
+      CryptoVerifyAesCmac:
+        opcode: 1286
+        description: Computes AES CMAC of provided data using specified Key and compares with provided MIC. Returns SUCCESS
+          if MICs match, FAIL_CMAC otherwise. Maximum data size 256 bytes.
+        parameters:
+        - name: key_id
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: Key ID (2, 5, 12-25). See key usage table.
+        - name: expected_mic
+          bit_width: 32
+          byte_positions:
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          - - 6
+            - '7:0'
+          description: Expected MIC (first 4 bytes of CMAC) to compare against
+        - name: data
+          bit_width: 0
+          byte_positions: []
+          description: Data byte buffer (max 256 bytes)
+        status_fields:
+        - name: ce_status
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: 'Crypto Engine status: 0: SUCCESS (MICs match), 1: FAIL_CMAC (MICs differ), 3: INV_KEY_ID, 5: BUF_SIZE,
+            6: ERROR'
+      CryptoAesEncrypt01:
+        opcode: 1287
+        description: Encrypts provided data using specified Key and returns encrypted data. Cannot be used on key indexes
+          2-11 (prevents re-calculating session keys). For LoRaWAN encryption operations.
+        parameters:
+        - name: key_id
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: Key ID (12-25). See key usage table.
+        - name: data
+          bit_width: 0
+          byte_positions: []
+          description: Data byte buffer to encrypt (max 256 bytes). First byte must be 0x01.
+        status_fields:
+        - name: ce_status
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
+        - name: encrypted_data
+          bit_width: 0
+          byte_positions: []
+          description: Encrypted data byte buffer
+      CryptoAesEncrypt:
+        opcode: 1288
+        description: Encrypts provided data using specified Key and returns encrypted data. For generic non-LoRaWAN operations
+          using Crypto Engine as hardware accelerator. Only for General Purpose keys (26-27).
+        parameters:
+        - name: key_id
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: 'Key ID (26-27 only: GP0, GP1). See key usage table.'
+        - name: data
+          bit_width: 0
+          byte_positions: []
+          description: Data byte buffer to encrypt (max 256 bytes)
+        status_fields:
+        - name: ce_status
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
+        - name: encrypted_data
+          bit_width: 0
+          byte_positions: []
+          description: Encrypted data byte buffer
+      CryptoAesDecrypt:
+        opcode: 1289
+        description: Decrypts provided data using specified Key and returns decrypted data. For non-LoRaWAN security tasks
+          using Crypto Engine as standalone hardware accelerator.
+        parameters:
+        - name: key_id
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: Key ID (0-27). See key usage table.
+        - name: data
+          bit_width: 0
+          byte_positions: []
+          description: Data byte buffer to decrypt (max 256 bytes)
+        status_fields:
+        - name: ce_status
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
+        - name: decrypted_data
+          bit_width: 0
+          byte_positions: []
+          description: Decrypted data byte buffer
+      CryptoStoreToFlash:
+        opcode: 1290
+        description: Stores all Keys and Parameters from Crypto Engine RAM into flash memory for persistence
+        parameters: []
+        status_fields:
+        - name: ce_status
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
+      CryptoRestoreFromFlash:
+        opcode: 1291
+        description: Restores all Keys and Parameters from flash memory into Crypto Engine RAM
+        parameters: []
+        status_fields:
+        - name: ce_status
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
+      CryptoSetParam:
+        opcode: 1293
+        description: Sets a specific Parameter into Crypto Engine RAM
+        parameters:
+        - name: param_id
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: Parameter ID (0-119)
+        - name: data
+          bit_width: 32
+          byte_positions:
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          - - 6
+            - '7:0'
+          description: Parameter data (32-bit)
+        status_fields:
+        - name: ce_status
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
+      CryptoGetParam:
+        opcode: 1294
+        description: Gets a specific Parameter from Crypto Engine RAM
+        parameters:
+        - name: param_id
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: Parameter ID (0-119)
+        status_fields:
+        - name: ce_status
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
+        - name: data
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: Parameter data (32-bit)
+      CryptoCheckEncryptedFirmwareImage:
+        opcode: 1295
+        description: Adds a chunk to encrypted firmware image to be checked. Call multiple times until complete image sent.
+          Takes max 64x32-bit words (256 bytes) per call, except last segment may be shorter. BUSY released when ready for
+          next chunk. Call CryptoCheckEncryptedFirmwareImageResult to get final result.
+        parameters:
+        - name: offset
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: Offset in bytes (must be multiple of 4). First offset is 0
+        - name: data
+          bit_width: 0
+          byte_positions: []
+          description: Data chunk as 32-bit words (max 256 bytes, must be multiple of 4). N=64 for all chunks except last
+            which may be shorter
+      CryptoCheckEncryptedFirmwareImageResult:
+        opcode: 1296
+        description: Gets result of encrypted firmware image check after all chunks sent via CryptoCheckEncryptedFirmwareImage
+        parameters: []
+        status_fields:
+        - name: success
+          bit_width: 1
+          byte_positions:
+          - - 1
+            - '0:0'
+          description: 'Firmware verification result: 0: Verification error, 1: Verification success'
+  fsk:
+    commands:
+      SetFskModulationParams:
+        opcode: 527
+        description: 'Configures (G)FSK modulation parameters. Returns CMD_FAIL if packet type is not (G)FSK. Bandwidth must satisfy: (2*Fdev + BR) < Bandwidth. Special register settings required for 0.6kbps and 1.2kbps bit rates (see section 8.4.5).'
+        parameters:
+        - name: precision
+          bit_width: 1
+          byte_positions:
+          - - 2
+            - '0'
+          description: 'Bit rate precision: HIGH indicates 8 fractional bits precision, while BASIC indicates no fractional bits'
+          enum:
+            BASIC: 0
+            HIGH: 1
+        - name: bitrate
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: 'Bit rate in bits/s (number of fractional bits defined by precision). If precision bit (bit 31) is 0: bitrate in bits/s is bitrate[30:0]. If bit 31 is 1: bitrate in bits/s is bitrate[30:0]/256'
+        - name: pulse_shape
+          bit_width: 8
+          byte_positions:
+          - - 6
+            - '7:0'
+          description: 'Pulse shape filter'
+          enum:
+            NONE: 0
+            BT_0_3: 8
+            BT_0_5: 9
+            BT_0_7: 10
+            BT_1_0: 11
+            RC_0_7: 22
+        - name: rx_bw
+          bit_width: 8
+          byte_positions:
+          - - 7
+            - '7:0'
+          description: 'RX Bandwidth (double side-band)'
+          enum:
+            BW_4800: 31
+            BW_5800: 23
+            BW_7300: 15
+            BW_9700: 30
+            BW_11700: 22
+            BW_14600: 14
+            BW_19500: 29
+            BW_23400: 21
+            BW_29300: 13
+            BW_39000: 28
+            BW_46900: 20
+            BW_58600: 12
+            BW_78200: 27
+            BW_93800: 19
+            BW_117300: 11
+            BW_156200: 26
+            BW_187200: 18
+            BW_234300: 10
+            BW_312000: 25
+            BW_373600: 17
+            BW_467000: 9
+        - name: fdev
+          bit_width: 32
+          byte_positions:
+          - - 8
+            - '7:0'
+          - - 9
+            - '7:0'
+          - - 10
+            - '7:0'
+          - - 11
+            - '7:0'
+          description: Frequency deviation in Hz
+      SetFskPacketParams:
+        opcode: 528
+        description: 'Configures (G)FSK RF packet parameters. Preamble recommended minimum 16 bits. PblDetect must be < SyncWordLen. For SX128x compatibility: PacketType 0x02, CRC 0/1/2 bytes, SyncWordLen 8/16/24/32/40 bits, AddrComp disabled, DcFree 0x00 or 0x03 only.'
+        parameters:
+        - name: pbl_len_tx
+          bit_width: 16
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          description: Preamble length in bits (8-65535). Minimum 16 bits recommended.
+        - name: pbl_len_detect
+          bit_width: 8
+          byte_positions:
+          - - 4
+            - '7:0'
+          description: 'Preamble detector length: 0x00: Off (lock on syncword directly), 0x04: 8 bits, 0x05: 16 bits (recommended), 0x06: 24 bits, 0x07: 32 bits. Must be < SyncWordLen.'
+          enum:
+            NONE: 0
+            LEN_8_BITS: 4
+            LEN_16_BITS: 5
+            LEN_24_BITS: 6
+            LEN_32_BITS: 7
+        - name: sync_word_len
+          bit_width: 8
+          byte_positions:
+          - - 5
+            - '7:0'
+          description: Syncword length in bits (must be byte-aligned). Programmed via SetGfskSyncWord. Non-byte-aligned bits go into payload.
+        - name: addr_comp
+          bit_width: 2
+          byte_positions:
+          - - 6
+            - '1:0'
+          description: 'Address filtering: 0x00: Disabled, 0x01: Enabled on Node address (RX & TX), 0x02: Enabled on Node & Broadcast (RX), Node only (TX). Set addresses with SetGfskAddress. Aborts RX and sets adrsErr if match fails.'
+          enum:
+            'OFF': 0
+            NODE: 1
+            NODE_BCAST: 2
+        - name: fsk_pkt_format
+          bit_width: 2
+          byte_positions:
+          - - 7
+            - '1:0'
+          description: 'Packet Format: Fixed length, Variable length with 8-bit header (SX126x) or 9-bit header (SX128x)'
+          enum:
+            FIXED_LENGTH : 0
+            VARIABLE_8BIT: 1
+            VARIABLE_9BIT: 2
+        - name: pld_len
+          bit_width: 8
+          byte_positions:
+          - - 8
+            - '7:0'
+          description: 'Fixed: exact payload length (0-255 no addr filter, 0-254 with addr filter). Variable: max payload (0=any 0-255, N=accept 1-N, reject 0 or >N with HeaderErr)'
+        - name: crc
+          bit_width: 8
+          byte_positions:
+          - - 9
+            - '7:0'
+          description: '0x01: CRC_OFF, 0x00: CRC_1_BYTE, 0x02: CRC_2_BYTE, 0x04: CRC_1_BYTE_INV, 0x06: CRC_2_BYTE_INV. Configure polynomial/init with SetGfskCrcParams.'
+          enum:
+            CRC_OFF: 1
+            CRC_1_BYTE: 0
+            CRC_2_BYTE: 2
+            CRC_1_BYTE_INV: 4
+            CRC_2_BYTE_INV: 6
+        - name: dc_free
+          bit_width: 8
+          byte_positions:
+          - - 10
+            - '7:0'
+          description: 'Whitening: 0x00: No encoding, 0x01: SX127x/SX126x/LR11xx compatible, 0x03: SX128x compatible. Configure seed with SetGfskWhitParams.'
+          enum:
+            DC_FREE_OFF: 0
+            DC_FREE_WHITENING: 1
+            DC_FREE_SX128X: 3
+      SetFskSyncWord:
+        opcode: 518
+        description: 'Configures (G)FSK syncword. Default 0x9723522556536564. For RX only: syncword must be multiple of 8 bits. If not, configure as next multiple of 8 and add filler bits at beginning (e.g., 30 bits -> configure as 32 bits with ''01b'' or ''10b'' prefix).'
+        parameters:
+        - name: syncword
+          bit_width: 64
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          - - 6
+            - '7:0'
+          - - 7
+            - '7:0'
+          - - 8
+            - '7:0'
+          - - 9
+            - '7:0'
+          description: 64-bit syncword (8 bytes). Actual length set by sync_word_len in SetGfskPacketParams.
+      SetFskAddress:
+        opcode: 530
+        description: Sets Node and Broadcast addresses for (G)FSK packet filtering when addr_comp enabled (0x01 or 0x02 in SetGfskPacketParams). Reception aborted with adrsErr flag if address comparison fails.
+        parameters:
+        - name: addr_node
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: 'Node address. Default: 0x00'
+        - name: addr_bcast
+          bit_width: 8
+          byte_positions:
+          - - 3
+            - '7:0'
+          description: 'Broadcast address. Default: 0x00'
+      SetFskCrcParams:
+        opcode: 548
+        description: 'Configures CRC polynomial and initial value for flexible CRC configuration. Examples: IBM CRC (InitValue=0xFFFF, Poly=0x8005, CrcType=CRC_2_BYTE), CCITT CRC (InitValue=0x1D0F, Poly=0x1021, CrcType=CRC_2_BYTE_INV)'
+        parameters:
+        - name: init
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: 'CRC polynomial initial value. Default: 0x1D0F'
+        - name: polynom
+          bit_width: 32
+          byte_positions:
+          - - 6
+            - '7:0'
+          - - 7
+            - '7:0'
+          - - 8
+            - '7:0'
+          - - 9
+            - '7:0'
+          description: 'CRC polynomial. Default: 0x1021'
+      SetFskWhitParams:
+        opcode: 549
+        description: 'Sets whitening seed. Polynomial: x^9+x^5+1 (sub-GHz), x^7+x^4+1 (HF). Limits consecutive 1''s/0''s to 9. Seed must match on all peer devices. Only needed if data has high correlation with long 0/1 strings.'
+        parameters:
+        - name: seed
+          bit_width: 16
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          description: 'Whitening seed. Default: 0x0100. For SX128x compatibility use 0x0001.'
+  gnss:
+    commands:
+      GnssSetConstellationToUse:
+        opcode: 1024
+        description: Configures GNSS scanning for selected constellation (GPS/BeiDou). If both selected, GPS scans first,
+          then BeiDou after delay (4s fixed for FW ≤01.02, variable 1s steps for FW 02.01+). Requires 32.768kHz clock for
+          dual constellation. BUSY high until both scans complete.
+        parameters:
+        - name: constellation_bit_mask
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: 'Bit 0=1: GPS selected, Bit 1=1: BeiDou selected, other: RFU'
+      GnssReadConstellationToUse:
+        opcode: 1025
+        description: Reads selected constellation (GPS/BeiDou)
+        parameters: []
+        status_fields:
+        - name: constellation_bit_mask
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: 'Bit 0=1: GPS, Bit 1=1: BeiDou, other: RFU'
+      GnssReadSupportedConstellations:
+        opcode: 1031
+        description: Reads supported constellations
+        parameters: []
+        status_fields:
+        - name: constellation_bit_mask
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: 'Bit 0=1: GPS supported, Bit 1=1: BeiDou supported, other: RFU'
+      GnssSetMode:
+        opcode: 1032
+        description: Configures GNSS for Legacy (single) or Advanced (multiple) scanning. Advanced performs multiple captures
+          and averages them for increased precision, at expense of longer duration and higher energy. FW 02.01+ NAV message
+          format differs from earlier versions.
+        parameters:
+        - name: gnss_mode
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: '0x00: Legacy (single) scanning, 0x03: Advanced (multiple) scanning, other: RFU'
+          enum:
+            LEGACY_SINGLE: 0
+            ADVANCED_MULTIPLE: 3
+      GnssAutonomous:
+        opcode: 1033
+        description: Captures GNSS signals in autonomous mode (no assistance info available). NOT supported in FW 02.01+,
+          replaced by GnssScan. Resets previous GNSS results. BUSY high during scan, GNSSDone IRQ when complete.
+        parameters:
+        - name: time
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: GPS time (GPST) in seconds since 6 Jan 1980 00:00:00. When converting from UTC, account for leap second
+            offset.
+        - name: effort_mode
+          bit_width: 8
+          byte_positions:
+          - - 6
+            - '7:0'
+          description: '0x00: Low Power (stop if no strong satellite), other: RFU'
+          enum:
+            LOW_POWER: 0
+            BEST_EFFORT: 1
+        - name: result_mask
+          bit_width: 8
+          byte_positions:
+          - - 7
+            - '7:0'
+          description: 'Bit 0: Include pseudo-ranges (GnssMode=0) or Doppler (GnssMode=1). Bit 1: Include Doppler info (min
+            5 or 7 satellites reported). Bit 2: Include bit changes (1 byte/satellite, not used by solver)'
+        - name: nb_sv_max
+          bit_width: 8
+          byte_positions:
+          - - 8
+            - '7:0'
+          description: 'Max satellites to return. If 0: return all detected. If >0: return NbSvMax with highest C/N0. Values
+            1 and 2 not accepted.'
+      GnssAssisted:
+        opcode: 1034
+        description: Captures GNSS signals using assistance data (time, position, almanac). NOT supported in FW 02.01+, replaced
+          by GnssScan. Resets previous GNSS results. BUSY high during scan, GNSSDone IRQ when complete.
+        parameters:
+        - name: time
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: GPS time (GPST) in seconds since 6 Jan 1980 00:00:00
+        - name: effort_mode
+          bit_width: 8
+          byte_positions:
+          - - 6
+            - '7:0'
+          description: '0x00: Low Power (stop if no strong satellite detected), 0x01: Best Effort (continue even if no strong satellite)'
+          enum:
+            LOW_POWER: 0
+            BEST_EFFORT: 1
+        - name: result_mask
+          bit_width: 8
+          byte_positions:
+          - - 7
+            - '7:0'
+          description: See GnssAutonomous result_mask
+        - name: nb_sv_max
+          bit_width: 8
+          byte_positions:
+          - - 8
+            - '7:0'
+          description: See GnssAutonomous nb_sv_max
+      GnssScan:
+        opcode: 1035
+        description: 'Captures GNSS signals independent of assistance data availability. FW 02.01+ only. Two types: Cold start
+          (no time/position, determines via demod/2D solving) or Assisted (time+position known, searches 12 strongest visible
+          satellites). Use sleep with retention to preserve assistance data. Can be aborted by sending 0x0 on SPI while BUSY
+          active (max 2.9s abort delay).'
+        parameters:
+        - name: effort_mode
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: '0x00: Low Power (duration/sensitivity depends on assistance data), 0x01: Best Effort (Legacy mode
+            requires assistance data or returns error, Advanced depends on assistance), 0x02: RFU'
+          enum:
+            LOW_POWER: 0
+            BEST_EFFORT: 1
+        - name: result_mask
+          bit_width: 8
+          byte_positions:
+          - - 3
+            - '7:0'
+          description: See ResultMask field definition table. Controls pseudo-ranges, Doppler info, bit changes in NAV message
+        - name: nb_sv_max
+          bit_width: 8
+          byte_positions:
+          - - 4
+            - '7:0'
+          description: 'Max satellites to detect. If 0: all detected. Otherwise: NbSvMax with higher C/N0. Values 1 and 2
+            not accepted.'
+      GnssSetAssistancePosition:
+        opcode: 1040
+        description: Configures approximate position for GNSS assisted mode. FW 02.01+ uses integrated 2D solving to determine
+          Assistance Position, replacing this configured value.
+        parameters:
+        - name: latitude
+          bit_width: 16
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          description: 'Latitude coded on 12 bits (resolution 0.044°). Formula: Latitude = latitude_degrees * 2048/90. Example:
+            47.006° = 1070 = 0x042E'
+        - name: longitude
+          bit_width: 16
+          byte_positions:
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: 'Longitude coded on 12 bits (resolution 0.088°). Formula: Longitude = longitude_degrees * 2048/180.
+            Example: 6.966° = 79 = 0x004F'
+      GnssReadAssistancePosition:
+        opcode: 1041
+        description: Reads assistance position
+        parameters: []
+        status_fields:
+        - name: latitude
+          bit_width: 16
+          byte_positions:
+          - - 1
+            - '7:0'
+          - - 2
+            - '7:0'
+          description: 'Latitude (12-bit effective). Convert: latitude_degrees = Latitude * 90/2048'
+        - name: longitude
+          bit_width: 16
+          byte_positions:
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          description: 'Longitude (12-bit effective). Convert: longitude_degrees = Longitude * 180/2048'
+      GnssGetContextStatus:
+        opcode: 1046
+        description: Reads GNSS context status including firmware version, almanac CRC, error codes, and frequency search
+          space
+        parameters: []
+        status_fields:
+        - name: gnss_fw_version
+          bit_width: 8
+          byte_positions:
+          - - 3
+            - '7:0'
+          description: GNSS firmware version
+        - name: global_almanac_crc
+          bit_width: 32
+          byte_positions:
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          - - 6
+            - '7:0'
+          - - 7
+            - '7:0'
+          description: 32-bit CRC on all flash memory (128 satellites, 21 bytes each)
+        - name: error_code
+          bit_width: 4
+          byte_positions:
+          - - 8
+            - '7:4'
+          description: '0: No error, 1: Almanac too old, 2: Last almanac update CRC mismatch, 3: Flash integrity error, 4:
+            Almanac update not allowed (GPS and BeiDou can''t update in same request), 5-15: RFU'
+        - name: almanac_update_bit_mask
+          bit_width: 3
+          byte_positions:
+          - - 8
+            - '3:1'
+          description: 'Bit 0: GPS, Bit 1: BeiDou, Bit 2: RFU'
+        - name: freq_search_space
+          bit_width: 2
+          byte_positions:
+          - - 8
+            - '0'
+          - - 9
+            - '7'
+          description: '0: 250Hz, 1: 500Hz, 2: 1kHz, 3: 2kHz'
+      GnssReadVersion:
+        opcode: 1030
+        description: Returns internal GNSS firmware version and almanac version
+        parameters: []
+        status_fields:
+        - name: firmware_version
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: GNSS firmware version
+        - name: almanac_version
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: Almanac version
+      GnssSetAlmanacUpdate:
+        opcode: 1026
+        description: Configures constellation almanac information to be updated. By default both constellations activated.
+        parameters:
+        - name: almanac_update_bit_mask
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: 'Bit 0: GPS, Bit 1: BeiDou, Bit 2: RFU'
+      GnssReadAlmanacUpdate:
+        opcode: 1027
+        description: Reads almanac update information
+        parameters: []
+        status_fields:
+        - name: almanac_update_bit_mask
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: 'Bit 0: GPS, Bit 1: BeiDou, Bit 2: RFU'
+      GnssGetResultSize:
+        opcode: 1036
+        description: Reads size in bytes of byte stream containing available GNSS results. Must call before GnssReadResults.
+        parameters: []
+        status_fields:
+        - name: result_size
+          bit_width: 16
+          byte_positions:
+          - - 1
+            - '7:0'
+          - - 2
+            - '7:0'
+          description: Size of GNSS results in bytes
+      GnssReadResults:
+        opcode: 1037
+        description: 'Retrieves last GNSS results. Variable length message: DestinationID (1 byte) + Payload. DestinationID:
+          0x00=Status to Host, 0x01=NAV to GNSS Solver, 0x02=Almanac update to DM service. Must call GnssGetResultSize first.'
+        parameters: []
+        status_fields:
+        - name: results
+          bit_width: 0
+          byte_positions: []
+          description: Variable length results byte stream. Format depends on DestinationID and scan mode.
+      GnssPushSolverMsg:
+        opcode: 1044
+        description: Pushes messages from GNSS solver to LR1120 (e.g., assistance position update)
+        parameters:
+        - name: payload
+          bit_width: 0
+          byte_positions: []
+          description: Byte stream to forward from solver to LR1120
+      GnssPushDmMsg:
+        opcode: 1045
+        description: Pushes messages from LoRaWAN network to LR1120. FW 02.01+ only.
+        parameters:
+        - name: payload
+          bit_width: 0
+          byte_positions: []
+          description: Byte stream to forward from network to LR1120
+      GnssGetNbSvDetected:
+        opcode: 1047
+        description: Returns number of Satellite Vehicles detected during last GNSS scan
+        parameters: []
+        status_fields:
+        - name: nb_sv
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: Number of detected satellites
+      GnssGetSvDetected:
+        opcode: 1048
+        description: Returns ID, SNR and Doppler of Satellite Vehicles detected during last GNSS scan. SNR in dB, add 31dB
+          to convert to C/N0.
+        parameters: []
+        status_fields:
+        - name: sv_data
+          bit_width: 0
+          byte_positions: []
+          description: 'Variable length array of satellite data. Per satellite: SvId (1 byte), SNR (1 byte in dB), Doppler
+            (signed 16-bit)'
+      GnssGetConsumption:
+        opcode: 1049
+        description: Reads duration of Radio capture and CPU processing phases of GNSS scan in microseconds. Used to determine
+          GNSS power consumption.
+        parameters: []
+        status_fields:
+        - name: radio_ms
+          bit_width: 32
+          byte_positions:
+          - - 1
+            - '7:0'
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          description: Radio capture duration in microseconds
+        - name: computation_ms
+          bit_width: 32
+          byte_positions:
+          - - 5
+            - '7:0'
+          - - 6
+            - '7:0'
+          - - 7
+            - '7:0'
+          - - 8
+            - '7:0'
+          description: CPU processing duration in microseconds
+      GnssGetSvVisible:
+        opcode: 1055
+        description: Returns number of visible satellites for given time, position, and constellation
+        parameters:
+        - name: time
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: GPS time in seconds since 6 Jan 1980 00:00:00
+        - name: latitude
+          bit_width: 16
+          byte_positions:
+          - - 6
+            - '7:0'
+          - - 7
+            - '7:0'
+          description: Latitude (see GnssSetAssistancePosition for encoding)
+        - name: longitude
+          bit_width: 16
+          byte_positions:
+          - - 8
+            - '7:0'
+          - - 9
+            - '7:0'
+          description: Longitude (see GnssSetAssistancePosition for encoding)
+        - name: constellation
+          bit_width: 8
+          byte_positions:
+          - - 10
+            - '7:0'
+          description: Constellation bit mask
+        status_fields:
+        - name: nb_sv_visible
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: Number of visible satellites
+      GnssConfigDelayResetAP:
+        opcode: 1125
+        description: Configures delay after which LR1120 resets Assistance Position and switches from assisted to cold start
+          scan (if time elapsed since last AP update exceeds delay AND no SV detected). FW 02.01+ only.
+        parameters:
+        - name: delay
+          bit_width: 24
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          description: Delay in seconds before Assistance Position reset
+      GnssReadLastScanModeLaunched:
+        opcode: 1062
+        description: Returns type of scan launched during last scan. FW 02.01+ only.
+        parameters: []
+        status_fields:
+        - name: last_scan_mode
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: '0-2: RFU, 3: Assisted (time+position known), 4: Cold start (unknown), 5: Cold start (time known),
+            6: Fetch time/integrated 2D, 7: Almanac update no flash, 8: Keep sync, 9: Almanac update 1 constellation flashed,
+            10: Almanac update 2 constellations flashed'
+      GnssFetchTime:
+        opcode: 1074
+        description: Configures LR1120 to determine time by demodulating satellite signals. FW 02.01+ only. Can be aborted.
+        parameters:
+        - name: demod_sensi
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: 'Demodulation sensitivity: 0: Low (GPS -134dBm, BeiDou -130dBm), 1: Mid (GPS -137dBm, BeiDou -134dBm)'
+          enum:
+            LOW: 0
+            MID: 1
+        - name: options
+          bit_width: 8
+          byte_positions:
+          - - 3
+            - '7:0'
+          description: '0: Search for Time Of Week (TOW) in any subframe/constellation (requires Week Number already demodulated)'
+      GnssReadTime:
+        opcode: 1076
+        description: Returns GPS time. FW 02.01+ only.
+        parameters: []
+        status_fields:
+        - name: gps_time
+          bit_width: 32
+          byte_positions:
+          - - 1
+            - '7:0'
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          description: GPS time in seconds since 6 Jan 1980 00:00:00
+        - name: time_accuracy
+          bit_width: 32
+          byte_positions:
+          - - 5
+            - '7:0'
+          - - 6
+            - '7:0'
+          - - 7
+            - '7:0'
+          - - 8
+            - '7:0'
+          description: Time accuracy in milliseconds
+      GnssResetTime:
+        opcode: 1077
+        description: Resets GPS time. FW 02.01+ only.
+        parameters: []
+      GnssResetPosition:
+        opcode: 1079
+        description: Resets Assistance Position. FW 02.01+ only.
+        parameters: []
+      GnssSetTime:
+        opcode: 1099
+        description: Allows Host MCU to set LR1120 GPS time. FW 02.01+ only.
+        parameters:
+        - name: gps_time
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: GPS time in seconds since 6 Jan 1980 00:00:00
+        - name: time_accuracy
+          bit_width: 16
+          byte_positions:
+          - - 6
+            - '7:0'
+          - - 7
+            - '7:0'
+          description: 'Time accuracy in milliseconds. If 0: LR1120 configures to >24 seconds'
+      GnssReadDopplerSolverRes:
+        opcode: 1103
+        description: Reads Assistance Position calculated by LR1120 2D Solver during GnssScan/GnssAlmanacUpdateFromSat or
+          updated by GnssComputeAssistancePosition. All 18 bytes must be read. FW 02.01+ only.
+        parameters: []
+        status_fields:
+        - name: error_code
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: '0: NoError, 1: ResidueHigh, 2: NotConverged, 3: NotEnoughSv, 4: IllMatrix, 5: Time error, 6: PartialAlmanacTooOld,
+            7: NotConsistentWithHistory, 8: AllAlmanacTooOld. If not NoError, latitude=0xFFFF, longitude=0xFFFF'
+        - name: nb_sv_used
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: Number of dopplers used for oneshot solving
+        - name: latitude
+          bit_width: 16
+          byte_positions:
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          description: Latitude from 2D solver
+        - name: longitude
+          bit_width: 16
+          byte_positions:
+          - - 5
+            - '7:0'
+          - - 6
+            - '7:0'
+          description: Longitude from 2D solver
+        - name: accuracy
+          bit_width: 16
+          byte_positions:
+          - - 7
+            - '7:0'
+          - - 8
+            - '7:0'
+          description: Accuracy estimate
+        - name: xtal
+          bit_width: 16
+          byte_positions:
+          - - 9
+            - '7:0'
+          - - 10
+            - '7:0'
+          description: Crystal frequency offset
+        - name: filtered_latitude
+          bit_width: 16
+          byte_positions:
+          - - 11
+            - '7:0'
+          - - 12
+            - '7:0'
+          description: Filtered latitude
+        - name: filtered_longitude
+          bit_width: 16
+          byte_positions:
+          - - 13
+            - '7:0'
+          - - 14
+            - '7:0'
+          description: Filtered longitude
+        - name: filtered_accuracy
+          bit_width: 16
+          byte_positions:
+          - - 15
+            - '7:0'
+          - - 16
+            - '7:0'
+          description: Filtered accuracy
+        - name: filtered_xtal
+          bit_width: 16
+          byte_positions:
+          - - 17
+            - '7:0'
+          - - 18
+            - '7:0'
+          description: Filtered crystal offset
+      GnssReadDelayResetAP:
+        opcode: 1107
+        description: Reads delay before Assistance Position reset configured in GnssConfigDelayResetAP. FW 02.01+ only.
+        parameters: []
+        status_fields:
+        - name: delay
+          bit_width: 24
+          byte_positions:
+          - - 1
+            - '7:0'
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          description: Delay in seconds
+  lora:
+    commands:
+      SetLoraModulationParams:
+        opcode: 527
+        description: Configures LoRa modulation parameters (SF, BW, CR, LDRO). Returns CMD_FAIL if packet type is not LoRa. SF5/SF6 compatible with SX126x. SF6 can be made compatible with SX127x in implicit mode via register setting.
+        parameters:
+        - name: sf
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: 'Spreading factor'
+          enum:
+            SF5: 5
+            SF6: 6
+            SF7: 7
+            SF8: 8
+            SF9: 9
+            SF10: 10
+            SF11: 11
+            SF12: 12
+        - name: lora_bw
+          bit_width: 8
+          byte_positions:
+          - - 3
+            - '7:0'
+          description: 'LoRa bandwidth'
+          enum:
+            BW_7: 0
+            BW_15: 1
+            BW_31: 2
+            BW_62: 3
+            BW_125: 4
+            BW_250: 5
+            BW_500: 6
+            BW_1000: 7
+            BW_10: 8
+            BW_20: 9
+            BW_41: 10
+            BW_83: 11
+            BW_101: 12
+            BW_203: 13
+            BW_406: 14
+            BW_812: 15
+        - name: lora_cr
+          bit_width: 3
+          byte_positions:
+          - - 4
+            - '2:0'
+          description: 'Coding rate. Note that for Long interleaver (LI) minimum payload is 8 bytes and max is 253 bytes (CRC on) or 255 bytes (CRC off)'
+          enum:
+            NO_CODING: 0
+            CR1_HAM_45_SI: 1
+            CR2_HAM_23_SI: 2
+            CR3_HAM_47_SI: 3
+            CR4_HAM_12_SI: 4
+            CR5_HAM_45_LI: 5
+            CR6_HAM_23_LI: 6
+            CR7_HAM_12_LI: 7
+        - name: ldro
+          bit_width: 2
+          byte_positions:
+          - - 5
+            - '1:0'
+          description: Low Data Rate Optimisation. Enable for high Spreading factor to increase tolerance to clock drift (mandatory for SF11/SF12 at BW125, and SF12 at BW250)
+          enum:
+            'OFF': 0
+            'ON': 1
+      SetLoraPacketParams:
+        opcode: 528
+        description: Configures LoRa RF packet parameters. Fails if no packet type set.
+        parameters:
+        - name: pbl_len
+          bit_width: 16
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          description: Preamble length (1-65535 symbols). Minimum 12 for SF5/SF6, minimum 8 for other SF advised.
+        - name: header_type
+          bit_width: 8
+          byte_positions:
+          - - 4
+            - '7:0'
+          description: '0x00: Explicit header (default), 0x01: Implicit header'
+          enum:
+            EXPLICIT: 0
+            IMPLICIT: 1
+        - name: pld_len
+          bit_width: 8
+          byte_positions:
+          - - 5
+            - '7:0'
+          description: 'Explicit mode: 0=accept any 0-255 bytes, N=accept 1-N bytes (0 or >N rejected with HeaderErr). Implicit mode: exact payload length to TX/RX'
+        - name: crc_en
+          bit_width: 1
+          byte_positions:
+          - - 6
+            - '0:0'
+          description: 'Enable CRC on payload'
+        - name: invert_iq
+          bit_width: 1
+          byte_positions:
+          - - 7
+            - '0:0'
+          description: 'Use inverted chirp direction'
+      SetLoraCad:
+        opcode: 536
+        description: Activates Channel Activity Detection (CAD) feature. Searches for LoRa preamble signal in both preamble and payload fields. Triggers CADdone IRQ when complete, CadDetected IRQ if valid signal found. Returns to STDBY_RC after completion. Minimum 2 symbols recommended.
+        parameters: []
+      SetLoraCadParams:
+        opcode: 525
+        description: Defines LoRa CAD parameters. DetPeak/DetMin depend on SF, BW, and symbol count - must be carefully tested for good sensitivity and minimal false detections.
+        parameters:
+        - name: nb_symbols
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: Number of symbols used for CAD detection
+        - name: det_peak
+          bit_width: 8
+          byte_positions:
+          - - 3
+            - '7:0'
+          description: Peak detection threshold for LoRa preamble correlation. Depends on SF, BW, symbol count.
+        - name: det_min
+          bit_width: 8
+          byte_positions:
+          - - 4
+            - '7:0'
+          description: Minimum detection threshold for LoRa preamble correlation. Depends on SF, BW, symbol count.
+        - name: exit_mode
+          bit_width: 8
+          byte_positions:
+          - - 5
+            - '7:0'
+          description: '0x00: CAD_ONLY (return to STBY_RC), 0x01: CAD_RX (stay in RX if activity detected), 0x10: CAD_LBT (go to TX if no activity)'
+          enum:
+            CAD_ONLY: 0
+            CAD_RX: 1
+            CAD_LBT: 16
+        - name: timeout
+          bit_width: 24
+          byte_positions:
+          - - 6
+            - '7:0'
+          - - 7
+            - '7:0'
+          - - 8
+            - '7:0'
+          description: Timeout for CAD_RX (see SetRx timeout) or CAD_LBT (see SetTx timeout) modes. Not used for CAD_ONLY.
+      SetLoraSynchTimeout:
+        opcode: 539
+        description: Configures LoRa modem to issue RX timeout after exactly SymbolNum symbols if no packet detected
+        parameters:
+        - name: symbol_num
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: 'Number of symbols before timeout. 0x00: No timeout (default)'
+      SetLoraSyncword:
+        opcode: 555
+        description: Sets the LoRa syncword. Valid for all spreading factors.
+        parameters:
+        - name: syncword
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: 'LoRa syncword. 0x12: Private Network (default), 0x34: Public Network'
+      GetLoraRxHeaderInfos:
+        opcode: 560
+        description: Returns information coded in last received packet header (explicit header mode) or configured coding_rate and crc_type settings
+        parameters: []
+        status_fields:
+        - name: crc
+          bit_width: 1
+          byte_positions:
+          - - 1
+            - '4'
+          description: 'CRC status from header (explicit mode) or configured setting (implicit mode). 1=CRC_ON, 0=CRC_OFF'
+        - name: lora_cr
+          bit_width: 3
+          byte_positions:
+          - - 1
+            - '2:0'
+          description: 'Coding rate from header (explicit mode) or configured setting (implicit mode)'
+          enum:
+            NO_CODING: 0
+            CR1_HAM_45_SI: 1
+            CR2_HAM_23_SI: 2
+            CR3_HAM_47_SI: 3
+            CR4_HAM_12_SI: 4
+            CR5_HAM_45_LI: 5
+            CR6_HAM_23_LI: 6
+            CR7_HAM_12_LI: 7
+      SetRangingAddr:
+        opcode: 540
+        description: Sets the ranging ID for this slave device. Defines which address bytes are checked against master's request.
+        parameters:
+        - name: addr
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: '32-bit ranging ID. Default: 0x00000019'
+        - name: check_length
+          bit_width: 3
+          byte_positions:
+          - - 6
+            - '2:0'
+          description: Defines how many of the 4 bytes of the address are checked against the request address sent by the
+            initiator. Checked bytes are the LSB if check_length<4
+          enum:
+            ADDR_8B: 1
+            ADDR_16B: 2
+            ADDR_24B: 3
+            ADDR_32B: 4
+      SetRangingReqAddr:
+        opcode: 541
+        description: Sets the address requested by the Master in the ranging request. Must match receiving Slave's ranging address.
+        parameters:
+        - name: req_addr
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: '32-bit requested ranging ID. Default: 0x00000019'
+      GetRangingResult:
+        opcode: 542
+        description: 'Reads ranging results in Master based on Type. Distance formula: Round Trip Distance [m] = Res * 3e8 / (2^12 * BW), where BW is LoRa bandwidth in Hz. RSSI formula: RSSI [dB] = Res / 2'
+        parameters:
+        - name: ranging_res_kind
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: 'Result type: 0: Last ranging distance result, 1: Last ranging RSSI result'
+          enum:
+            DISTANCE: 0
+            RSSI: 1
+        status_fields:
+        - name: rng
+          bit_width: 24
+          byte_positions:
+          - - 1
+            - '7:0'
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          description: 'Distance in meter is given by rng*150/(2^12*Bandwidth)'
+      GetRangingRssi:
+        opcode: -1
+        parameters: []
+        status_fields:
+        - name: rssi
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: 'RSSI value in -0,5 dBm'
+      SetRangingTxRxDelay:
+        opcode: 543
+        description: Sets TxRx delay for ranging calibration. Compensates for deterministic fixed delay in processing ranging response/request for accurate range estimation. Same value must be written in both Master and Slave. Value depends on LoRa BW/SF used.
+        parameters:
+        - name: delay
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: 'TxRx delay calibration value. Typical values for Semtech EVKs (may differ on other PCB designs): BW125/SF5: 19035, BW125/SF12: 19024, BW250/SF5: 20235, BW250/SF12: 20232, BW500/SF5: 20149, BW500/SF12: 20298'
+      SetRangingParameter:
+        opcode: 552
+        description: Defines number of symbols used during synchronization. Value of 15 recommended for good compromise between accuracy and time on air/energy. Increasing symbols improves accuracy at expense of longer time on air.
+        parameters:
+        - name: reserved
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: Reserved, must be 0
+        - name: symb_nb
+          bit_width: 8
+          byte_positions:
+          - - 3
+            - '7:0'
+          description: 'Number of synchronization symbols. Recommended: 15'
+  lrfhss:
+    commands:
+      SetModulationParams:
+        opcode: 527
+        description: 'Configures LR-FHSS modulation parameters. Returns CMD_FAIL if packet type is not LR-FHSS. Only 488.28215
+          Hz data rate currently supported. BitRate formula: bits/s = BitRate[30:0]/256 with BitRate[31]=1. Example: 488.28215Hz
+          = BitRate 125000 with bit 31=1.'
+        parameters:
+        - name: bitrate
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: LR-FHSS bit rate. Bit 31 must be 1. Bits/s = BitRate[30:0]/256. Currently only 488.28215Hz supported
+            (BitRate=125000 with bit 31=1), other values RFU
+        - name: pulse_shape
+          bit_width: 8
+          byte_positions:
+          - - 6
+            - '7:0'
+          description: 'Filtering: 0x0B: Gaussian BT 1, other values RFU'
+          enum:
+            GAUSSIAN_BT_1: 11
+  lrfhss:
+    commands:
+      LrFhssBuildFrame:
+        opcode: 556
+        description: 'Encodes payload and configures internal hopping table. Returns CMD_OK if valid, CMD_PERR if invalid. Does NOT send packet - use SetTx to transmit. Max coded packet 255 bytes. See payload length table for user payload limits by CR and HeaderCount. FCC use case: BW 0x08/0x09, Hopping 0x01, Grid 0x00. If configured, LrFhssHop IRQ asserted at each hop after PA ramp-up.'
+        parameters:
+        - name: sync_header_cnt
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: Number of sync headers (1, 2, 3, or 4). Minimum 2 recommended for interference immunity. Multiple headers sent on different frequencies.
+        - name: lrfhss_cr
+          bit_width: 8
+          byte_positions:
+          - - 3
+            - '7:0'
+          description: 'Coding rate'
+          enum:
+            CR_5_6: 0
+            CR_2_3: 1
+            CR_1_2: 2
+            CR_1_3: 3
+        - name: mod_type
+          bit_width: 8
+          byte_positions:
+          - - 4
+            - '7:0'
+          description: '0: GMSK modulation, 488.28125bps data rate'
+        - name: grid
+          bit_width: 8
+          byte_positions:
+          - - 5
+            - '7:0'
+          description:  Frequency grid selection (25.39kHz or 3.91kHz)
+          enum:
+            GRID_25: 0
+            GRID_4: 1
+        - name: hopping
+          bit_width: 8
+          byte_positions:
+          - - 6
+            - '7:0'
+          description: 'Intra-packet hopping'
+          enum:
+            NO_HOPPING: 0
+            HOPPING_ENABLED: 1
+        - name: lrfhss_bw
+          bit_width: 8
+          byte_positions:
+          - - 7
+            - '7:0'
+          description: 'Bandwidth occupied by hopping pattern'
+          enum:
+            BW_39_06: 0
+            BW_85_94: 1
+            BW_136_72: 2
+            BW_183_59: 3
+            BW_335_94: 4
+            BW_386_72: 5
+            BW_722_66: 6
+            BW_773_44: 7
+            BW_1523_4: 8
+            BW_1574_2: 9
+        - name: hop_sequence
+          bit_width: 9
+          byte_positions:
+          - - 8
+            - '0'
+          - - 9
+            - '7:0'
+          description: '9-bit seed for pseudo-random hopping sequence. Grid 0x00 + BW {0x06-0x09}: [0-383]. Grid 0x01 + BW {0x00-0x03}: [0-383]. Grid 0x01 + BW {0x04-0x09}: [0-511]'
+        - name: device_offset
+          bit_width: 8
+          signed: true
+          byte_positions:
+          - - 10
+            - '7:0'
+          description: 'Per-device frequency offset to reduce collision risk. Frequency offset (Hz) = DeviceOffset * 488.28125Hz. Signed: [-26 to 25] for Grid 25.390625kHz, [-4 to 3] for Grid 3.90625kHz. For FCC: do not change once configured.'
+        # This will be handle by the API to call a second functio without raising the NSS in between
+        # - name: payload
+        #   bit_width: 0
+        #   byte_positions: []
+        #   description: 'Payload to encode. Max user payload depends on CR and HeaderCount (see table). CR 5/6: 189/178/167/155 bytes (HC 1/2/3/4), CR 2/3: 151/142/133/123, CR 1/2: 112/105/99/92, CR 1/3: 74/69/65/60'
+      LrFhssSetSyncWord:
+        opcode: 557
+        description: 'Sets LR-FHSS syncword (4 bytes). Default: {0x2C, 0x0F, 0x79, 0x95}'
+        parameters:
+        - name: syncword
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: '4-byte LR-FHSS syncword. Default: 0x2C0F7995'
+  radio:
+    commands:
+      SetRfFrequency:
+        opcode: 523
+        description: Sets the RF (PLL) frequency of the radio in Hz. Sub-GHz path selected for frequencies ≤1.50GHz, HF path for higher frequencies. All frequency dependent parameters automatically recomputed.
+        parameters:
+        - name: rf_freq
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: RF frequency in Hz
+      SetRx:
+        opcode: 521
+        description: Sets radio in RX mode. Sub-GHz path for ≤1.50GHz, HF path above. After timeout, returns to Standby RC. BUSY goes low after entering RX mode. Fails if no packet type configured or packet type doesn't allow RX.
+        parameters:
+        - name: rx_timeout
+          bit_width: 24
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          description: 'RX timeout in 32.768kHz RTC periods (max 512s). 0x000000: RX until packet received then return to Standby. 0xFFFFFF: RX continuous until host command. Timer stops on preamble/header if StopTimeoutOnPreamble configured.'
+      SetTx:
+        opcode: 522
+        description: Sets radio in TX mode, triggers RF packet transmission with RTC timeout. After TX_DONE or TIMEOUT, returns to STBY_RC (default), STBY_XOSC or FS per FallBackMode config. BUSY goes low after entering TX mode. Fails if no packet type configured or packet type doesn't allow TX.
+        parameters:
+        - name: tx_timeout
+          bit_width: 24
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          description: TX timeout in 32.768kHz RTC periods (max 512s). 0x000000 disables timeout.
+      SetTxCw:
+        opcode: 537
+        description: Sets device in TX continuous wave mode (unmodulated carrier). Immediately enters TX CW mode. Operating
+          frequency and PA configuration commands (including RF output power) must be called PRIOR to this command. Used for
+          ETSI D-M1 test (unmodulated carrier) and FCC Part 15.247 compliance testing.
+        parameters: []
+      SetTxInfinitePreamble:
+        opcode: 538
+        description: Transmits infinite preamble sequence. Immediately starts transmission. Operating frequency, PA configuration
+          commands (including RF output power), and packet type must be called PRIOR to this command. Used for ETSI D-M2 test
+          (continuously modulated signal with greatest occupied RF bandwidth).
+        parameters: []
+      AutoTxRx:
+        opcode: 524
+        description: Automatically performs transition to RX after TX or TX after RX. After second mode, returns to Standby RC. Not used if Rx Duty Cycle is started.
+        parameters:
+        - name: delay
+          bit_width: 24
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          description: 'Transition time between TX and RX modes in 32.768kHz RTC periods (max 512s). 0x000000: Direct transition without intermediary mode. 0xFFFFFF: Disables AutoTxRx (default disabled).'
+        - name: intermediary_mode
+          bit_width: 8
+          byte_positions:
+          - - 5
+            - '7:0'
+          description: 'Device mode between TX and RX modes'
+          enum:
+            SLEEP: 0
+            STDBY_RC: 1
+            STDBY_XOSC: 2
+            FS: 3
+        - name: timeout
+          bit_width: 24
+          byte_positions:
+          - - 6
+            - '7:0'
+          - - 7
+            - '7:0'
+          - - 8
+            - '7:0'
+          description: Timeout of second mode after automatic transition in 32.768kHz RTC periods (max 512s). 0x000000 disables timeout.
+      SetRxTxFallbackMode:
+        opcode: 531
+        description: Defines device mode after packet transmission or reception. Not used if Rx Duty Cycle started or AutoRxTx configured. After RX timeout, device returns to Standby RC regardless of fallback config.
+        parameters:
+        - name: fallback_mode
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: Fallback mode after RX or TX
+          enum:
+            STDBY_RC: 1
+            STDBY_XOSC: 2
+            FS: 3
+      SetRxDutyCycle:
+        opcode: 532
+        description: Periodically opens RX windows. Between windows, device goes to Sleep mode with retention. Configure 32kHz clock source before entering Duty Cycle. AutoRxTx and SetRxTxFallback not used in this mode. Returns CMD_FAIL if packet type not set.
+        parameters:
+        - name: rx_period
+          bit_width: 24
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          description: Maximum RX window duration in 32.768kHz RTC periods (max 512s)
+        - name: sleep_period
+          bit_width: 24
+          byte_positions:
+          - - 5
+            - '7:0'
+          - - 6
+            - '7:0'
+          - - 7
+            - '7:0'
+          description: Duration of Sleep period between RX windows in 32.768kHz RTC periods (max 512s)
+        - name: use_lora_cad
+          bit_width: 1
+          byte_positions:
+          - - 8
+            - '0:0'
+          description: Use CAD to listen when packet type is LoRa
+      StopTimeoutOnPreamble:
+        opcode: 535
+        description: Defines if RX timeout should be stopped on Syncword/Header detection or Preamble detection
+        parameters:
+        - name: stop_on_preamble
+          bit_width: 1
+          byte_positions:
+          - - 2
+            - '0:0'
+          description: '0 to on Syncword/Header detection (default), 1 to stop on Preamble detection'
+      GetRssiInst:
+        opcode: 517
+        description: 'Returns instantaneous RSSI value at the time command is sent. If no RF packet present, returns RF noise. Formula: RSSI (dBm) = -Rssi/2'
+        parameters: []
+        status_fields:
+        - name: rssi
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: 'Instantaneous RSSI value. Convert to dBm: RSSI(dBm) = -rssi/2'
+      GetStats:
+        opcode: 513
+        description: Returns internal statistics of received RF packets. Statistics reset on Power On Reset, power down, or
+          ResetStats command.
+        parameters: []
+        status_fields:
+        - name: nb_pkt_received
+          bit_width: 16
+          byte_positions:
+          - - 1
+            - '7:0'
+          - - 2
+            - '7:0'
+          description: Total number of received packets
+        - name: nb_pkt_crc_error
+          bit_width: 16
+          byte_positions:
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          description: Total number of received packets with CRC error
+        - name: data1
+          bit_width: 16
+          byte_positions:
+          - - 5
+            - '7:0'
+          - - 6
+            - '7:0'
+          description: 'Packet type dependent. (G)FSK: NbPacketLengthError, LoRa: NbPktHeaderErr'
+        - name: data2
+          bit_width: 16
+          byte_positions:
+          - - 7
+            - '7:0'
+          - - 8
+            - '7:0'
+          description: 'Packet type dependent. (G)FSK: 0x00, LoRa: NbPktFalseSync'
+      ResetStats:
+        opcode: 512
+        description: Resets the internal statistics of received RF packets
+        parameters: []
+      GetRxBufferStatus:
+        opcode: 515
+        description: Returns the length of last packet received and offset in RX buffer of first byte received
+        parameters: []
+        status_fields:
+        - name: pld_len
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: Payload length of last packet received in bytes
+        - name: offset
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: Offset in RX buffer of first byte received
+      SetRxBoosted:
+        opcode: 551
+        description: Sets device in RX Boosted mode, allowing ~2dB increased sensitivity at expense of ~2mA higher RX current consumption
+        parameters:
+        - name: rx_boosted
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: '0: RX Boosted mode deactivated, 1: RX Boosted mode activated, other values RFU'
+          enum:
+            DEACTIVATED: 0
+            ACTIVATED: 1
+      SetPaConfig:
+        opcode: 533
+        description: Selects which PA to use and configures the PA supply. Must be called before SetTxParams. No automatic frequency limitation during PA selection - frequency must match external matching network capability.
+        parameters:
+        - name: pa_sel
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: 'PA selection: Low0Power, High Power or High Frequency'
+          enum:
+            LP_PA: 0
+            HP_PA: 1
+            HF_PA: 2
+        - name: reg_pa_supply
+          bit_width: 8
+          byte_positions:
+          - - 3
+            - '7:0'
+          description: 'PA power source: 0x00: Internal regulator (VREG), 0x01: VBAT. Must use 0x01 when TxPower > 14'
+          enum:
+            VREG: 0
+            VBAT: 1
+        - name: pa_duty_cycle
+          bit_width: 8
+          byte_positions:
+          - - 4
+            - '7:0'
+          description: 'PA duty cycle control. Default 0x04. Low Power PA: 0-0x07 (≥400MHz) or 0-0x04 (<400MHz). High Power PA: 0-0x04 (PaHpSel≥0x05) or 0-0x07 (PaHpSel≤0x04). High Frequency PA: 0-0x04'
+        - name: pa_hp_sel
+          bit_width: 8
+          byte_positions:
+          - - 5
+            - '7:0'
+          description: High power PA size control. Must be set to 7 to reach +22dBm. Has no effect on low power PA or high frequency PA.
+      SetTxParams:
+        opcode: 529
+        description: Sets TX power and ramp time of selected PA. SetPaConfig must be sent prior to this command. 48us ramp time recommended for best trade-off between fast RF establishment and minimum spurious emissions.
+        parameters:
+        - name: tx_power
+          bit_width: 8
+          signed: true
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: 'Output power in dBm. Low Power PA: -17dBm (0xEF) to +14dBm (0x0E) in 1dB steps. High Power PA: -9dBm (0xF7) to +22dBm (0x16) in 1dB steps. High Frequency PA: -18dBm (0xEE) to +13dBm (0x0F) in 1dB steps. If TxPower > +14dBm, must select VBAT supply in SetPaConfig.'
+        - name: ramp_time
+          bit_width: 8
+          byte_positions:
+          - - 3
+            - '7:0'
+          description: 'PA power ramping time'
+          enum:
+            RAMP_16U: 0
+            RAMP_32U: 1
+            RAMP_48U: 2
+            RAMP_64U: 3
+            RAMP_80U: 4
+            RAMP_96U: 5
+            RAMP_112U: 6
+            RAMP_128U: 7
+            RAMP_144U: 8
+            RAMP_160U: 9
+            RAMP_176U: 10
+            RAMP_192U: 11
+            RAMP_208U: 12
+            RAMP_240U: 13
+            RAMP_272U: 14
+            RAMP_304U: 15
+      SetRssiCalibration:
+        opcode: 553
+        description: Sets gain offset for on-chip power estimation. LR1120 internal LNA has predefined gains (G4-G13 with sub-gains). RSSI must be calibrated per hardware type, not per device. Default calibration for 868-915MHz on EVK.
+        parameters:
+        - name: tune_g4
+          bit_width: 4
+          byte_positions:
+          - - 2
+            - '7:4'
+          description: RSSI Gain Tune for G4. Signed 4-bit value, 1 LSB = 0.5dB
+        - name: tune_g5
+          bit_width: 4
+          byte_positions:
+          - - 2
+            - '3:0'
+          description: RSSI Gain Tune for G5. Signed 4-bit value, 1 LSB = 0.5dB
+        - name: tune_g6
+          bit_width: 4
+          byte_positions:
+          - - 3
+            - '7:4'
+          description: RSSI Gain Tune for G6. Signed 4-bit value, 1 LSB = 0.5dB
+        - name: tune_g7
+          bit_width: 4
+          byte_positions:
+          - - 3
+            - '3:0'
+          description: RSSI Gain Tune for G7. Signed 4-bit value, 1 LSB = 0.5dB
+        - name: tune_g8
+          bit_width: 4
+          byte_positions:
+          - - 4
+            - '7:4'
+          description: RSSI Gain Tune for G8. Signed 4-bit value, 1 LSB = 0.5dB
+        - name: tune_g9
+          bit_width: 4
+          byte_positions:
+          - - 4
+            - '3:0'
+          description: RSSI Gain Tune for G9. Signed 4-bit value, 1 LSB = 0.5dB
+        - name: tune_g10
+          bit_width: 4
+          byte_positions:
+          - - 5
+            - '7:4'
+          description: RSSI Gain Tune for G10. Signed 4-bit value, 1 LSB = 0.5dB
+        - name: tune_g11
+          bit_width: 4
+          byte_positions:
+          - - 5
+            - '3:0'
+          description: RSSI Gain Tune for G11. Signed 4-bit value, 1 LSB = 0.5dB
+        - name: tune_g12
+          bit_width: 4
+          byte_positions:
+          - - 6
+            - '7:4'
+          description: RSSI Gain Tune for G12. Signed 4-bit value, 1 LSB = 0.5dB
+        - name: tune_g13
+          bit_width: 4
+          byte_positions:
+          - - 6
+            - '3:0'
+          description: RSSI Gain Tune for G13. Signed 4-bit value, 1 LSB = 0.5dB
+        - name: tune_g13_hp1
+          bit_width: 4
+          byte_positions:
+          - - 7
+            - '7:4'
+          description: RSSI Gain Tune for G13 HP1. Signed 4-bit value, 1 LSB = 0.5dB
+        - name: tune_g13_hp2
+          bit_width: 4
+          byte_positions:
+          - - 7
+            - '3:0'
+          description: RSSI Gain Tune for G13 HP2. Signed 4-bit value, 1 LSB = 0.5dB
+        - name: tune_g13_hp3
+          bit_width: 4
+          byte_positions:
+          - - 8
+            - '7:4'
+          description: RSSI Gain Tune for G13 HP3. Signed 4-bit value, 1 LSB = 0.5dB
+        - name: tune_g13_hp4
+          bit_width: 4
+          byte_positions:
+          - - 8
+            - '3:0'
+          description: RSSI Gain Tune for G13 HP4. Signed 4-bit value, 1 LSB = 0.5dB
+        - name: tune_g13_hp5
+          bit_width: 4
+          byte_positions:
+          - - 9
+            - '7:4'
+          description: RSSI Gain Tune for G13 HP5. Signed 4-bit value, 1 LSB = 0.5dB
+        - name: tune_g13_hp6
+          bit_width: 4
+          byte_positions:
+          - - 9
+            - '3:0'
+          description: RSSI Gain Tune for G13 HP6. Signed 4-bit value, 1 LSB = 0.5dB
+        - name: tune_g13_hp7
+          bit_width: 4
+          byte_positions:
+          - - 10
+            - '7:4'
+          description: RSSI Gain Tune for G13 HP7. Signed 4-bit value, 1 LSB = 0.5dB
+        - name: gain_offset
+          bit_width: 12
+          byte_positions:
+          - - 10
+            - '3:0'
+          - - 11
+            - '7:0'
+          description: Global offset added to Gain Tune values. Signed 12-bit value, 1 LSB = 0.5dB
+      SetPacketType:
+        opcode: 526
+        description: Defines which modem to use for next RF transactions. First command to call before RX/TX and before defining modulation/packet parameters. Only works in Standby RC, Standby Xosc or FS mode, otherwise returns CMD_FAIL.
+        parameters:
+        - name: packet_type
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: 'Modem selection'
+          enum:
+            NONE: 0
+            GFSK: 1
+            LORA: 2
+            SIGFOX_UL: 3
+            LR_FHSS: 4
+            RANGING: 5
+            BLE: 6
+      GetPacketType:
+        opcode: 514
+        description: Returns current protocol of the radio
+        parameters: []
+        status_fields:
+        - name: packet_type
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: 'Current modem'
+          enum:
+            NONE: 0
+            GFSK: 1
+            LORA: 2
+            SIGFOX_UL: 3
+            LR_FHSS: 4
+            RANGING: 5
+            BLE: 6
+  regmem:
+    commands:
+      WriteRegMem32:
+        opcode: 261
+        description: Writes blocks of 32-bit words in register/memory space starting at a specific address. Address must be
+          32-bit aligned and data length must be a multiple of 4. Maximum N is 64.
+        parameters:
+        - name: addr
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: Starting address in register/memory space. Address is auto incremented after each data word.
+        - name: data
+          bit_width: 32
+          byte_positions:
+          - - 5
+            - '7:0'
+          - - 6
+            - '7:0'
+          - - 7
+            - '7:0'
+          - - 8
+            - '7:0'
+          description: Variable length array of 32-bit data words to write (1-64 words, each 4 bytes)
+      ReadRegMem32:
+        opcode: 262
+        description: Reads blocks of 32-bit words in register/memory space starting at a specific address. Address must be
+          32-bit aligned. Maximum len is 64 words.
+        parameters:
+        - name: addr
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: Starting address in register/memory space. Address is auto incremented after each data word.
+        - name: len
+          bit_width: 8
+          byte_positions:
+          - - 6
+            - '7:0'
+          description: Number of 32-bit words to read (maximum 64)
+        status_fields:
+        - name: value
+          bit_width: 32
+          byte_positions: [[2, "7:0"], [3, "7:0"], [4, "7:0"], [5, "7:0"]]
+          description: Data blocks read from register/memory. Variable length array of 32-bit words.
+      WriteRegMemMask32:
+        opcode: 268
+        description: Reads/modifies/writes the masked bits (Mask bits = 1) of a single 32-bit word in register/memory space
+          at the specified address. Address must be 32-bit aligned.
+        parameters:
+        - name: addr
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: Address in register/memory space
+        - name: mask
+          bit_width: 32
+          byte_positions:
+          - - 6
+            - '7:0'
+          - - 7
+            - '7:0'
+          - - 8
+            - '7:0'
+          - - 9
+            - '7:0'
+          description: Mask indicating which bits to modify (1 = modify, 0 = keep)
+        - name: data
+          bit_width: 32
+          byte_positions:
+          - - 10
+            - '7:0'
+          - - 11
+            - '7:0'
+          - - 12
+            - '7:0'
+          - - 13
+            - '7:0'
+          description: Data to write to masked bits
+  system:
+    commands:
+      GetStatus:
+        opcode: 256
+        description: Returns status of device including stat1, stat2, and interrupt flags. Clears the stat2 ResetStatus field.
+        parameters: []
+        status_fields:
+        - name: stat
+          bit_width: 16
+          byte_positions:
+          - - 0
+            - '7:0'
+          - - 1
+            - '7:0'
+          description: Status register with command status, interrupt status, reset source, and chip mode
+        - name: intr
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: IRQ status register
+      GetErrors:
+        opcode: 269
+        description: Returns the pending errors that occurred since the last ClearErrors() or circuit startup
+        parameters: []
+        status_fields:
+        - name: lf_rc_calib_err
+          bit_width: 1
+          byte_positions:
+          - - 1
+            - '0'
+          description: LF RC calibration error
+        - name: hf_rc_calib_err
+          bit_width: 1
+          byte_positions:
+          - - 1
+            - '1'
+          description: HF RC calibration error
+        - name: adc_calib_err
+          bit_width: 1
+          byte_positions:
+          - - 1
+            - '2'
+          description: ADC calibration error
+        - name: pll_calib_err
+          bit_width: 1
+          byte_positions:
+          - - 1
+            - '3'
+          description: PLL calibration error
+        - name: img_calib_err
+          bit_width: 1
+          byte_positions:
+          - - 1
+            - '4'
+          description: Image rejection calibration error
+        - name: hf_xosc_start_err
+          bit_width: 1
+          byte_positions:
+          - - 1
+            - '5'
+          description: HF XOSC start error
+        - name: lf_xosc_start_err
+          bit_width: 1
+          byte_positions:
+          - - 1
+            - '6'
+          description: LF XOSC start error
+        - name: pll_lock_err
+          bit_width: 1
+          byte_positions:
+          - - 1
+            - '7'
+          description: PLL lock error
+        - name: rx_adc_offset_err
+          bit_width: 1
+          byte_positions:
+          - - 2
+            - '0'
+          description: RX ADC offset error
+      ClearErrors:
+        opcode: 270
+        description: Clears all error flags pending in the device. Error flags cannot be cleared individually.
+        parameters: []
+      WriteBuffer8:
+        opcode: 265
+        description: Writes a block of bytes into the radio TX buffer (up to 255 bytes)
+        parameters:
+        - name: data
+          bit_width: 0
+          byte_positions: []
+          description: Data bytes to write to TX buffer (maximum 255 bytes)
+      ReadBuffer8:
+        opcode: 266
+        description: Reads a block of bytes from the radio RX buffer starting at a specific offset. RX buffer must be implemented as a ring buffer.
+        parameters:
+        - name: offset
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: Starting offset in RX buffer
+        - name: len
+          bit_width: 8
+          byte_positions:
+          - - 3
+            - '7:0'
+          description: Number of bytes to read
+        status_fields:
+        - name: data
+          bit_width: 0
+          byte_positions: []
+          description: Data bytes read from RX buffer
+      ClearRxBuffer:
+        opcode: 267
+        description: Clears all data in the radio RX buffer by writing '0' over the whole buffer. Mainly used for debug purposes.
+        parameters: []
+      GetRandomNumber:
+        opcode: 288
+        description: Gets a 32-bit random number. Not for security purposes.
+        parameters: []
+        status_fields:
+        - name: random_number
+          bit_width: 32
+          byte_positions:
+          - - 1
+            - '7:0'
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          description: 32-bit random number
+      EnableSpiCrc:
+        opcode: 296
+        description: Enables/disables an 8-bit CRC on the SPI interface. CRC uses polynomial 0x65 (reversed reciprocal), initial value 0xFF. This command is always protected by CRC.
+        parameters:
+        - name: enable
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: '0: Disabled (no CRC expected or sent), 1: Enabled (CRC expected and sent), other values RFU'
+        - name: crc
+          bit_width: 8
+          byte_positions:
+          - - 3
+            - '7:0'
+          description: Cyclic redundancy check byte
+      GetVersion:
+        opcode: 257
+        description: Returns the version of the LR1120 hardware and firmware
+        parameters: []
+        status_fields:
+        - name: hw_version
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: Hardware version of the LR1120
+        - name: hw_type
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: 'Device type'
+          enum:
+            LR1110: 1
+            LR1120: 2
+            LR1121: 3
+            BOOTLOADER: 223
+        - name: fw_major
+          bit_width: 8
+          byte_positions:
+          - - 3
+            - '7:0'
+          description: Firmware major version number
+        - name: fw_minor
+          bit_width: 8
+          byte_positions:
+          - - 4
+            - '7:0'
+          description: Firmware minor version number
+      Calibrate:
+        opcode: 271
+        description: 'Calibrates the requested blocks. Command operates in any mode and returns to Standby RC after completion. Note: PLL_TX calibration required before first Bluetooth Low Energy transmission.'
+        parameters:
+        - name: lf_rc
+          bit_width: 1
+          byte_positions:
+          - - 2
+            - '0'
+          description: LF RC calibration enable
+        - name: hf_rc
+          bit_width: 1
+          byte_positions:
+          - - 2
+            - '1'
+          description: HF RC calibration enable
+        - name: pll
+          bit_width: 1
+          byte_positions:
+          - - 2
+            - '2'
+          description: PLL calibration enable
+        - name: adc
+          bit_width: 1
+          byte_positions:
+          - - 2
+            - '3'
+          description: ADC calibration enable
+        - name: img
+          bit_width: 1
+          byte_positions:
+          - - 2
+            - '4'
+          description: Image rejection calibration enable
+        - name: pll_tx
+          bit_width: 1
+          byte_positions:
+          - - 2
+            - '5'
+          description: PLL TX calibration enable
+      CalibImage:
+        opcode: 273
+        description: Launches image calibration for given frequency range on RFI_N/P_LF sub-GHz path. Frequencies in 4MHz steps. Operates in any mode, returns to Standby RC. Image calibration advised after large temperature variations (>10°C) or frequency changes (>10MHz).
+        parameters:
+        - name: freq1
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: 'Minimum frequency in 4MHz steps. Formula: floor((fmin_mhz - 1)/4). Example: 900MHz = 0xE1'
+        - name: freq2
+          bit_width: 8
+          byte_positions:
+          - - 3
+            - '7:0'
+          description: 'Maximum frequency in 4MHz steps. Formula: ceiling((fmax_mhz + 1)/4). Example: 928MHz = 0xE9'
+      ConfigLfClock:
+        opcode: 278
+        description: Configures the 32kHz clock source
+        parameters:
+        - name: lf_clock
+          bit_width: 2
+          byte_positions:
+          - - 2
+            - '1:0'
+          description: LF (32.768kHz) clock source selection (RC, XTal, External clock on DIO11)
+          optional: false
+          enum:
+            RC: 0
+            XTAL: 1
+            DIO11: 2
+        - name: busy_release
+          bit_width: 1
+          byte_positions:
+          - - 2
+            - '2'
+          description: 'Controls when the pin busy is released related to the LF clock ready'
+      SetTcxoMode:
+        opcode: 279
+        description: Configures the chip for a connected TCXO. Must be called before GetTemp() if TCXO is used. Only operates in Standby RC mode, otherwise returns CMD_FAIL. Complete chip reset required to return to normal XOSC operation.
+        parameters:
+        - name: tcxo_voltage
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: 'TCXO supply voltage on VTCXO pin. Precision typically +/-50mV for 1.8V setting.'
+          enum:
+            TCXO_1V6: 0
+            TCXO_1V7: 1
+            TCXO_1V8: 2
+            TCXO_2V2: 3
+            TCXO_2V4: 4
+            TCXO_2V7: 5
+            TCXO_3V0: 6
+            TCXO_3V3: 7
+        - name: delay
+          bit_width: 24
+          byte_positions:
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: Maximum duration for 32MHz oscillator to start and stabilize, in 30.52us steps. If oscillator not detected by end of delay, triggers HF_XOSC_START_ERR error
+      Reboot:
+        opcode: 280
+        description: Triggers a restart of the LR1120 firmware. 32kHz clock configuration is retained.
+        parameters:
+        - name: stay_in_bootloader
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: '0: Performs software restart, 3: Bootloader does not execute firmware but allows firmware upgrades, other values RFU'
+          enum:
+            SOFTWARE_RESTART: 0
+            BOOTLOADER_MODE: 3
+      SetSleep:
+        opcode: 283
+        description: Puts device in Power Down or Sleep mode with optional automatic wake-up. Device exits on NSS falling edge. BUSY=1, all MISO and DIOs in Hi-Z. After wake-up, performs firmware restart and goes to Standby RC when BUSY goes low.
+        parameters:
+        - name: wakeup_rtc
+          bit_width: 1
+          byte_positions:
+          - - 2
+            - '1'
+          description: 'Set to one to wake-up enabled on RTC event'
+        - name: ret_en
+          bit_width: 1
+          byte_positions:
+          - - 2
+            - '0'
+          description: 'Enable 8kB memory retention'
+        - name: sleep_time
+          bit_width: 32
+          byte_positions:
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          - - 6
+            - '7:0'
+          description: 'Sleep time in 32.768kHz clock cycles (30.52us steps) before automatic wake-up. Range: 0ms to 36.4 hours'
+      SetStandby:
+        opcode: 284
+        description: Sets the device in standby mode with chosen 32MHz oscillator. RC is default for all automatic mode transitions. Crystal/TCXO allows faster transitions at expense of higher power.
+        parameters:
+        - name: standby_mode
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: 'Select clock used in standaby (RC or XOsc)'
+          enum:
+            RC: 0
+            XOSC: 1
+      SetFs:
+        opcode: 285
+        description: Sets chip into Frequency Synthesis (FS) mode
+        parameters: []
+      SetDioIrqParams:
+        opcode: 275
+        description: Configures which interrupt signals should be activated on the DIO9 (IRQ pin 1) and/or DIO11 (IRQ pin 2) interrupt pins
+        parameters:
+        - name: irq1_to_enable
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: 'IRQ mask for DIO9. Bit 2: TxDone, Bit 3: RxDone, Bit 4: PreambleDetected, Bit 5: SyncWordValid/HeaderValid, Bit 6: HeaderErr, Bit 7: Err, Bit 8: CadDone, Bit 9: CadDetected, Bit 10: Timeout, Bit 11: LrFhssHop, Bit 19: GNSSDone, Bit 20: WifiDone, Bit 21: LBD, Bit 22: CmdError, Bit 23: Error, Bit 24: FskLenError, Bit 25: FskAddrError, Bit 27: LoRaRxTimestamp, Bit 28: GnssAbort'
+        - name: irq2_to_enable
+          bit_width: 32
+          byte_positions:
+          - - 6
+            - '7:0'
+          - - 7
+            - '7:0'
+          - - 8
+            - '7:0'
+          - - 9
+            - '7:0'
+          description: IRQ mask for DIO11. Same bit mapping as irq1_to_enable
+      ClearIrq:
+        opcode: 276
+        description: Clears the selected interrupt signals by writing a 1 in the respective bit. IrqToClear mapping is identical to IrqToEnable.
+        parameters:
+        - name: irq_to_clear
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: IRQ mask indicating which interrupts to clear (1 = clear)
+      SetDioAsRfSwitch:
+        opcode: 274
+        description: Configures DIO5, DIO6, DIO7, DIO8 and DIO10 to control external RF switches or LNAs on the Sub-GHz, GNSS, Wi-Fi and RFIO_HF RF paths. Only works in Standby RC mode, otherwise returns CMD_FAIL. Only lowest 5 bits of all configurations are used.
+        parameters:
+        - name: rfsw_enable
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: 'Bit mask indicating which RF switches are enabled. Bit 0: RFSW0 (DIO5), Bit 1: RFSW1 (DIO6), Bit 2: RFSW2 (DIO7), Bit 3: RFSW3 (DIO8), Bit 4: RFSW4 (DIO10)'
+        - name: rfsw_stby_cfg
+          bit_width: 8
+          byte_positions:
+          - - 3
+            - '7:0'
+          description: State of each RFSW DIO when in standby mode (bits 5:7 RFU)
+        - name: rfsw_rx_cfg
+          bit_width: 8
+          byte_positions:
+          - - 4
+            - '7:0'
+          description: State of each RFSW DIO when in RX mode
+        - name: rfsw_tx_cfg
+          bit_width: 8
+          byte_positions:
+          - - 5
+            - '7:0'
+          description: State of each RFSW DIO when in low power TX mode
+        - name: rfsw_tx_hp_cfg
+          bit_width: 8
+          byte_positions:
+          - - 6
+            - '7:0'
+          description: State of each RFSW DIO when in high power TX mode
+        - name: rfsw_tx_hf_cfg
+          bit_width: 8
+          byte_positions:
+          - - 7
+            - '7:0'
+          description: State of each RFSW DIO when in radio high frequency TX mode
+        - name: rfsw_gnss_cfg
+          bit_width: 8
+          byte_positions:
+          - - 8
+            - '7:0'
+          description: State of each RFSW DIO when in GNSS scanning mode
+        - name: rfsw_wifi_cfg
+          bit_width: 8
+          byte_positions:
+          - - 9
+            - '7:0'
+          description: State of each RFSW DIO when in Wi-Fi scanning mode or high frequency RX mode
+      DriveDiosInSleepMode:
+        opcode: 298
+        description: Enables or disables pull-up/down resistors on configured RF switch and IRQ line DIOs when in sleep mode. Saves power when RF switches are supplied by LR1120 DIOs.
+        parameters:
+        - name: enable
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: '0: No pull-up or pull-down configured (default), 1: Pull-up or pull-down added on configured RF switch and IRQ DIOs in sleep mode based on DIO state in RC mode'
+          enum:
+            DISABLED: 0
+            ENABLED: 1
+      GetTemp:
+        opcode: 282
+        description: Returns the temperature measurement from the built-in temperature sensor. Uses XOSC mode, so SetTcxoMode must be called first if TCXO is connected.
+        parameters: []
+        status_fields:
+        - name: temp
+          bit_width: 16
+          byte_positions:
+          - - 1
+            - '7:0'
+          - - 2
+            - '7:0'
+          description: 'Temperature value. Formula: Temperature (°C) = 25 - (1000 / (-1.7mV/°C)) * ((Temp[10:0] / 2047) * 1.35V - 0.7295V)'
+      SetRegMode:
+        opcode: 272
+        description: Sets whether DC-DC converter is enabled for XOSC, FS, RX or TX modes. Only works in Standby RC mode, otherwise returns CMD_FAIL.
+        parameters:
+        - name: reg_mode
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: '0: Use LDO in all modes (default), 1: Automatically switch on DC-DC converter in FS, RX and TX modes, other values RFU'
+          enum:
+            LDO_ONLY: 0
+            DCDC_ENABLED: 1
+      GetVbat:
+        opcode: 281
+        description: 'Returns the battery supply voltage (VBAT) as a function of reference voltage. Formula: VBAT (V) = (5 * (Vbat[7:0] / 255)) / (1 - (1 / 1.35V))'
+        parameters: []
+        status_fields:
+        - name: vbat
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: Battery voltage measurement value
+      GetChipEui:
+        opcode: 293
+        description: Reads LR1120's pre-provisioned ChipEui. Globally-unique number assigned by Semtech in production using Semtech's IEEE assigned EUIs. Stored in persistent memory. Can be used as LoRaWAN DeviceEui or user can provide their own.
+        parameters: []
+        status_fields:
+        - name: chip_eui
+          bit_width: 64
+          byte_positions:
+          - - 1
+            - '7:0'
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          - - 6
+            - '7:0'
+          - - 7
+            - '7:0'
+          - - 8
+            - '7:0'
+          description: 8-byte globally unique ChipEui in big endian format
+      GetSemtechJoinEui:
+        opcode: 294
+        description: Reads LR1120's pre-programmed JoinEui installed in production by Semtech. LoRaWAN root keys (AppKey, NwkKey) derived from this JoinEui. In standard use, should be used as LoRaWAN JoinEui field in Join Request frame. Stored in persistent memory.
+        parameters: []
+        status_fields:
+        - name: semtech_join_eui
+          bit_width: 64
+          byte_positions:
+          - - 1
+            - '7:0'
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          - - 6
+            - '7:0'
+          - - 7
+            - '7:0'
+          - - 8
+            - '7:0'
+          description: 8-byte factory JoinEui in big endian format. Re-used across set of Semtech devices.
+  wifi:
+    commands:
+      WifiScan:
+        opcode: 768
+        description: Captures Wi-Fi packets on RFIO_HF pin. BUSY signal high during scan (few hundred ms). IRQ signal high
+          at end if WifiScanDone interrupt enabled.
+        parameters:
+        - name: signal_type
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: '802.11 signal type: 0x01: Wi-Fi b, 0x02: Wi-Fi g, 0x03: Wi-Fi n, 0x04: All signals (b then g/n on
+            same channel), 0x05-0xFF: RFU'
+          enum:
+            WIFI_TYPE_B: 1
+            WIFI_TYPE_G: 2
+            WIFI_TYPE_N: 3
+            WIFI_TYPE_ALL: 4
+        - name: chan_mask
+          bit_width: 16
+          byte_positions:
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          description: Channel mask [0 0 Ch14 Ch13 Ch12 Ch11 Ch10 Ch9 Ch8 Ch7 Ch6 Ch5 Ch4 Ch3 Ch2 Ch1]. Bit=1 indicates channel
+            must be scanned
+        - name: acq_mode
+          bit_width: 8
+          byte_positions:
+          - - 5
+            - '7:0'
+          description: 'Acquisition mode: 0x01: Beacon search, 0x02: Beacon and Packet search, 0x03: Full traffic, 0x04: Full
+            beacon (until FCS), 0x05: SSID Beacon search (b/g only), other: RFU'
+          enum:
+            BEACON_SEARCH: 1
+            BEACON_AND_PACKET: 2
+            FULL_TRAFFIC: 3
+            FULL_BEACON: 4
+            SSID_BEACON: 5
+        - name: nb_max_res
+          bit_width: 8
+          byte_positions:
+          - - 6
+            - '7:0'
+          description: Maximum number of different MAC addresses as result (≤32). Scan stops when reached. Duplicate MAC with
+            different RSSI ignored.
+        - name: nb_scan_per_chan
+          bit_width: 8
+          byte_positions:
+          - - 7
+            - '7:0'
+          description: Number of Wi-Fi passive scans per channel (1-255). Scan stops if NbMaxRes found.
+        - name: timeout
+          bit_width: 16
+          byte_positions:
+          - - 8
+            - '7:0'
+          - - 9
+            - '7:0'
+          description: 'Preamble Search mode timeout in ms (1-65535). Example: 105ms for 102.4ms beacon period'
+        - name: abort_on_timeout
+          bit_width: 8
+          byte_positions:
+          - - 10
+            - '7:0'
+          description: 'If 1: abort scan on this channel and jump to next on preamble timeout. If 0: continue'
+      WifiScanTimeLimit:
+        opcode: 769
+        description: Searches for Wi-Fi MAC addresses during configurable maximal time. Duration may be exceeded due to crystal
+          drift and last signal detection. T_max = N_channel x ((1 + Xtal_precision) x Timeout + T_offset)
+        parameters:
+        - name: signal_type
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: See WifiScan signal_type
+          enum:
+            WIFI_TYPE_B: 1
+            WIFI_TYPE_G: 2
+            WIFI_TYPE_N: 3
+            WIFI_TYPE_ALL: 4
+        - name: chan_mask
+          bit_width: 16
+          byte_positions:
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          description: See WifiScan chan_mask
+        - name: acq_mode
+          bit_width: 8
+          byte_positions:
+          - - 5
+            - '7:0'
+          description: See WifiScan acq_mode
+          enum:
+            BEACON_SEARCH: 1
+            BEACON_AND_PACKET: 2
+            FULL_TRAFFIC: 3
+            FULL_BEACON: 4
+            SSID_BEACON: 5
+        - name: nb_max_res
+          bit_width: 8
+          byte_positions:
+          - - 6
+            - '7:0'
+          description: See WifiScan nb_max_res
+        - name: scan_time_per_channel
+          bit_width: 16
+          byte_positions:
+          - - 7
+            - '7:0'
+          - - 8
+            - '7:0'
+          description: Maximal duration of scan on single channel in ms (1-65535)
+        - name: timeout_per_scan
+          bit_width: 16
+          byte_positions:
+          - - 9
+            - '7:0'
+          - - 10
+            - '7:0'
+          description: 'Maximal preamble wait duration in ms (0-65535). Counter restarted after each preamble detection. If
+            0: stays in preamble search for ScanTimePerChannel'
+      WifiCountryCode:
+        opcode: 770
+        description: Extracts Country code from Beacon or Probe Response. Only Wi-Fi b signals searched. Results filtered
+          for duplicates by MAC address. Returns CMD_PERR if parameter range not respected, CMD_FAIL for radio config errors.
+        parameters:
+        - name: chan_mask
+          bit_width: 16
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          description: Channel mask to scan [0 0 ch14...ch1]. Bit=1 indicates channel must be scanned
+        - name: nb_max_res
+          bit_width: 8
+          byte_positions:
+          - - 4
+            - '7:0'
+          description: Maximum number of results
+        - name: nb_scan_per_channel
+          bit_width: 8
+          byte_positions:
+          - - 5
+            - '7:0'
+          description: Number of scans per channel
+        - name: timeout
+          bit_width: 16
+          byte_positions:
+          - - 6
+            - '7:0'
+          - - 7
+            - '7:0'
+          description: Timeout for preamble detection phase in ms
+        - name: abort_on_timeout
+          bit_width: 8
+          byte_positions:
+          - - 8
+            - '7:0'
+          description: 'If 1: abort on preamble detection timeout. If 0: continue'
+      WifiCountryCodeTimeLimit:
+        opcode: 771
+        description: Searches for Wi-Fi MAC addresses during configurable maximal time for country code extraction. T_max
+          = N_channel x ((1 + Xtal_precision) x Timeout + T_offset). T_offset always 9.59ms.
+        parameters:
+        - name: chan_mask
+          bit_width: 16
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          description: Channel mask to scan
+        - name: nb_max_res
+          bit_width: 8
+          byte_positions:
+          - - 4
+            - '7:0'
+          description: Maximum number of results
+        - name: scan_time_per_channel
+          bit_width: 16
+          byte_positions:
+          - - 5
+            - '7:0'
+          - - 6
+            - '7:0'
+          description: Maximal scan duration per channel in ms
+        - name: timeout_per_scan
+          bit_width: 16
+          byte_positions:
+          - - 7
+            - '7:0'
+          - - 8
+            - '7:0'
+          description: 'Maximal preamble wait duration in ms (0-65535). If 0: stays in preamble search for ScanTimePerChannel'
+      WifiGetNbResults:
+        opcode: 773
+        description: Returns the number of Wi-Fi Scanning results (8 bits). Read at next SPI transaction.
+        parameters: []
+        status_fields:
+        - name: nb_results
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: Number of Wi-Fi scan results (0-32)
+      WifiReadResults:
+        opcode: 774
+        description: 'Reads byte stream of Wi-Fi Passive Scanning results from given index in requested format. Must call
+          WifiGetNbResults first. Issue NOP bytes (0x00) to read back. Max 1020 bytes per command - split into multiple requests
+          if needed. Format 0x01: 22 bytes/MAC (modes 0x01, 0x02) or 79 bytes/MAC (mode 0x04). Format 0x04: 9 bytes/MAC.'
+        parameters:
+        - name: index
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: Index of Wi-Fi Passive Scanning results to read (0-31)
+        - name: nb_results
+          bit_width: 8
+          byte_positions:
+          - - 3
+            - '7:0'
+          description: Number of Wi-Fi AP MAC Addresses to read (1-32)
+        - name: format
+          bit_width: 8
+          byte_positions:
+          - - 4
+            - '7:0'
+          description: 'Result format: 0x01: Basic Complete (22 or 79 bytes), 0x04: Basic MAC/Type/Channel (9 bytes), other:
+            RFU'
+          enum:
+            BASIC_COMPLETE: 1
+            BASIC_MAC_TYPE_CHANNEL: 4
+        status_fields:
+        - name: results
+          bit_width: 0
+          byte_positions: []
+          description: 'Variable length results byte stream. Format 0x04: WifiType(1), ChannelInfo(1), RSSI(1), MAC(6). Format
+            0x01: adds FrameCtrl(2), PhiOffset(2), Timestamp(8), PeriodBeacon(2). Format 0x01 with mode 0x04: 79 bytes with
+            extended fields'
+      WifiResetCumulTimings:
+        opcode: 775
+        description: Resets Wi-Fi Passive Scanning cumulative timings. Must be called prior to executing Wi-Fi Passive Scanning
+          if timings are to be read.
+        parameters: []
+      WifiReadCumulTimings:
+        opcode: 776
+        description: Reads Wi-Fi Passive Scanning cumulative timings (16 bytes). Represents total time in various modes during
+          WifiScan, summed for all acquisitions over different parameters. Times in microseconds. All 16 bytes must be read.
+          Must be reset by host.
+        parameters: []
+        status_fields:
+        - name: rfu
+          bit_width: 32
+          byte_positions:
+          - - 1
+            - '7:0'
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          description: Reserved for future use
+        - name: preamble_detection_time
+          bit_width: 32
+          byte_positions:
+          - - 5
+            - '7:0'
+          - - 6
+            - '7:0'
+          - - 7
+            - '7:0'
+          - - 8
+            - '7:0'
+          description: Total duration in preamble detection mode (microseconds)
+        - name: capture_time
+          bit_width: 32
+          byte_positions:
+          - - 9
+            - '7:0'
+          - - 10
+            - '7:0'
+          - - 11
+            - '7:0'
+          - - 12
+            - '7:0'
+          description: Total duration in capture mode (microseconds)
+        - name: demodulation_time
+          bit_width: 32
+          byte_positions:
+          - - 13
+            - '7:0'
+          - - 14
+            - '7:0'
+          - - 15
+            - '7:0'
+          - - 16
+            - '7:0'
+          description: Total duration in demodulation mode (microseconds)
+      WifiGetNbCountryCodeResults:
+        opcode: 777
+        description: Returns number of results after Country Code scanning by WifiCountryCode or WifiCountryCodeTimeLimit
+        parameters: []
+        status_fields:
+        - name: nb_results
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: Number of Country Code results (0-32)
+      WifiReadCountryCodeResults:
+        opcode: 778
+        description: Reads byte stream of Wi-Fi Passive Scanning Country Code results from given index. Must call WifiGetNbCountryCodeResults
+          first. Issue NOP bytes to read back. One result is 10 bytes.
+        parameters:
+        - name: index
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: Index of Country Code result to start reading from (0-31)
+        - name: nb_results
+          bit_width: 8
+          byte_positions:
+          - - 3
+            - '7:0'
+          description: Number of Country Code results to read (1-32)
+        status_fields:
+        - name: results
+          bit_width: 0
+          byte_positions: []
+          description: 'Variable length results (10 bytes per result): CountryCode[0-1] (ASCII), IOReg (ASCII: ''I''=Indoor,
+            ''O''=Outdoor, '' ''=Any), ChannelInfo (bits 0-3: ChannelID, 4-5: MacOrigin, 6: RssiValidation, 7: Reserved),
+            MAC[6-1]'
+      WifiCfgTimestampAPphone:
+        opcode: 779
+        description: Configures timestamp threshold to discriminate mobile access point from gateways. Default 1 day. If timestamp
+          from beacon/probe response exceeds limit, MAC validation indicates probable gateway not mobile device.
+        parameters:
+        - name: timestamp
+          bit_width: 32
+          byte_positions:
+          - - 2
+            - '7:0'
+          - - 3
+            - '7:0'
+          - - 4
+            - '7:0'
+          - - 5
+            - '7:0'
+          description: Threshold timestamp value in seconds
+      WifiReadVersion:
+        opcode: 800
+        description: Returns internal Wi-Fi firmware version major and minor numbers
+        parameters: []
+        status_fields:
+        - name: version_major
+          bit_width: 8
+          byte_positions:
+          - - 1
+            - '7:0'
+          description: Wi-Fi firmware major version
+        - name: version_minor
+          bit_width: 8
+          byte_positions:
+          - - 2
+            - '7:0'
+          description: Wi-Fi firmware minor version

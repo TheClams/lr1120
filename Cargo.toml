@@ -1,0 +1,29 @@
+[package]
+name = "lr1120"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Driver for Semtech LR1120"
+repository = "https://github.com/TheClams/lr1120"
+readme = "Readme.md"
+categories = ["embedded", "no-std"]
+keywords = ["driver", "LR1120", "LR1110", "LR11xx", "transceiver"]
+
+[features]
+defmt = ["dep:defmt"]
+
+[dependencies]
+
+embassy-time = { version = "0.5.0", features = ["defmt", "defmt-timestamp-uptime", "tick-hz-32_768", ] }
+embassy-embedded-hal = { version = "0.5.0" }
+
+embedded-hal = "1.0.0"
+embedded-hal-async = "1.0"
+
+defmt = { version = "1.0.1", optional = true }
+
+# Disable test when running all target to avoid issue with rust-analyzer
+[lib]
+test = false
+doctest = false
+bench = false
