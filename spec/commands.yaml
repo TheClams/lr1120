@@ -1540,35 +1540,6 @@ categories:
           description: 'Number of synchronization symbols. Recommended: 15'
   lrfhss:
     commands:
-      SetModulationParams:
-        opcode: 527
-        description: 'Configures LR-FHSS modulation parameters. Returns CMD_FAIL if packet type is not LR-FHSS. Only 488.28215
-          Hz data rate currently supported. BitRate formula: bits/s = BitRate[30:0]/256 with BitRate[31]=1. Example: 488.28215Hz
-          = BitRate 125000 with bit 31=1.'
-        parameters:
-        - name: bitrate
-          bit_width: 32
-          byte_positions:
-          - - 2
-            - '7:0'
-          - - 3
-            - '7:0'
-          - - 4
-            - '7:0'
-          - - 5
-            - '7:0'
-          description: LR-FHSS bit rate. Bit 31 must be 1. Bits/s = BitRate[30:0]/256. Currently only 488.28215Hz supported
-            (BitRate=125000 with bit 31=1), other values RFU
-        - name: pulse_shape
-          bit_width: 8
-          byte_positions:
-          - - 6
-            - '7:0'
-          description: 'Filtering: 0x0B: Gaussian BT 1, other values RFU'
-          enum:
-            GAUSSIAN_BT_1: 11
-  lrfhss:
-    commands:
       LrFhssBuildFrame:
         opcode: 556
         description: 'Encodes payload and configures internal hopping table. Returns CMD_OK if valid, CMD_PERR if invalid. Does NOT send packet - use SetTx to transmit. Max coded packet 255 bytes. See payload length table for user payload limits by CR and HeaderCount. FCC use case: BW 0x08/0x09, Hopping 0x01, Grid 0x00. If configured, LrFhssHop IRQ asserted at each hop after PA ramp-up.'

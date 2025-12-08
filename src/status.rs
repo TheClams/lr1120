@@ -1,3 +1,19 @@
+//! # Device status and interrupts
+//!
+//! The device status is represented by two bytes provided on each command.
+//! It contains:
+//! - Information about previous command (Ok, fail, error, ...)
+//! - A flag for interrupt pending
+//! - The source of the last reset (manual, analog, watchdog, ...)
+//! - Current chip Mode (Sleep, Standby, Tx, RX, ...)
+//!
+//! Note that when the command is only one byte, only the previous command status
+//!  and interrupt pending are updated.
+//!
+//! The interrupt structure `Intr` allows to both configrue which interrupt should be assigned to a pin
+//! with the command [`set_dio_irq`](Lr1120::set_dio_irq) and easily get which interrupt is currently raised
+//! after a [`get_status`](Lr1120::get_status).
+
 use super::Lr1120Error;
 
 /// Status sent at the beginning of each SPI command
@@ -228,7 +244,7 @@ pub const IRQ_MASK_ADDR_ERROR          : u32 = 0x02000000;
 /// Only to be used for timestamping, not for changing mode or re-configuring the device.
 pub const IRQ_MASK_RX_TIMESTAMP        : u32 = 0x08000000;
 /// last GNSS command was aborted
-pub const IRQ_MASK_GNSS_ABORT        : u32 = 0x08000000;
+pub const IRQ_MASK_GNSS_ABORT          : u32 = 0x08000000;
 
 /// Mask to enable all interrupt usefull for LoRa TX/RX (preamble detected, header ok/err, tx/rx done, timeout, CRC error)
 pub const IRQ_MASK_LORA_TXRX : u32 =

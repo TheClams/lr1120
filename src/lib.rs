@@ -12,7 +12,6 @@
 //! - **Flexible busy pin handling** - Both blocking polling and async interrupt-based modes
 //! - **HAL abstraction** - Uses `embedded-hal` and `embedded-hal-async` traits for hardware portability
 //! - **Comprehensive error handling** - Detailed error types for robust error management
-//! - **Optimized SPI communication** - Efficient command buffering and status management
 //!
 //! ## Hardware Requirements
 //!
@@ -45,7 +44,7 @@
 //! - [`status`] - Status and interrupt handling
 //! - [`system`] - System-level operations (reset, sleep, etc.)
 //! - [`radio`] - Common radio operations
-//! - Protocol modules: [`lora`], [`ble`], [`flrc`], [`fsk`], [`ook`], [`zigbee`], [`zwave`], etc.
+//! - Protocol modules: [`lora`], [`fsk`], [`lrfhss`].
 //!
 //! ## Error Handling
 //!
@@ -61,11 +60,6 @@
 //! ## Cargo Features
 //!
 //! - `defmt` - Enable defmt logging support for debugging
-//!
-//! ## Examples
-//!
-//! A few examples are available on the Github repository [lr2021-apps](https://github.com/TheClams/lr2021-apps).
-//! It implements some simple demonstration for a few protocols, using a Nucleo board.
 
 #![no_std]
 pub mod status;
@@ -95,9 +89,11 @@ pub trait BusyPin: Sealed {
     #[allow(async_fn_in_trait)]
     async fn wait_ready(pin: &mut Self::Pin, timeout: Duration) -> Result<(), Lr1120Error>;
 }
+/// Zero-Size marker structure for Busy pin supporting only blocking operations (polling)
 pub struct BusyBlocking<I> {
     _marker: PhantomData<I>
 }
+/// Zero-Size marker structure for Busy pin supporting async operations (implements Wait trait)
 pub struct BusyAsync<I> {
     _marker: PhantomData<I>
 }

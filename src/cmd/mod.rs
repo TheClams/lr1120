@@ -1,3 +1,7 @@
+//! # Collection of functions to create SPI commands (byte arrays) and hold SPI responses
+//!
+//! All commands are automatically generated from the `commands.yaml` file which is extracted from the official specification.
+//!
 pub mod cmd_crypto;
 pub mod cmd_fsk;
 pub mod cmd_gnss;
