@@ -69,6 +69,7 @@ pub mod radio;
 pub mod lora;
 pub mod fsk;
 pub mod lrfhss;
+pub mod wifi_scan;
 
 use core::marker::PhantomData;
 
@@ -133,15 +134,15 @@ impl<I: InputPin + Wait> BusyPin for BusyAsync<I> {
     }
 }
 
-/// Size of an the internal buffer set to the largest command (outside those with variable number of parameters)
-const BUFFER_SIZE: usize = 256;
+/// Size of an the internal buffer set to the largest command
+const BUFFER_SIZE: usize = 1023;
 /// Command Buffer:
-pub struct CmdBuffer ([u8;BUFFER_SIZE+2]);
+pub struct CmdBuffer ([u8;BUFFER_SIZE+1]);
 
 impl CmdBuffer {
     /// Create a zero initialized buffer
     pub fn new() -> Self {
-        CmdBuffer([0;BUFFER_SIZE+2])
+        CmdBuffer([0;BUFFER_SIZE+1])
     }
 
     /// Set first two byte to 0 corresponding to the NOP command
@@ -340,6 +341,16 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
         self.cmd_wr_begin(opcode).await?;
         self.spi
             .transfer_in_place(data).await
+            .map_err(|_| Lr1120Error::Spi)?;
+        self.nss.set_high().map_err(|_| Lr1120Error::Pin)
+    }
+
+    /// Write a command with variable length payload, and save result in local buffer
+    pub async fn cmd_data_rw_l(&mut self, opcode: &[u8], rsp_len: usize) -> Result<(), Lr1120Error> {
+        self.cmd_wr_begin(opcode).await?;
+        self.buffer.nop();
+        self.spi
+            .transfer_in_place(&mut self.buffer.data_mut()[..rsp_len]).await
             .map_err(|_| Lr1120Error::Spi)?;
         self.nss.set_high().map_err(|_| Lr1120Error::Pin)
     }

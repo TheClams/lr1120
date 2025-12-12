@@ -2745,18 +2745,17 @@ categories:
         description: Captures Wi-Fi packets on RFIO_HF pin. BUSY signal high during scan (few hundred ms). IRQ signal high
           at end if WifiScanDone interrupt enabled.
         parameters:
-        - name: signal_type
+        - name: wifi_standard
           bit_width: 8
           byte_positions:
           - - 2
             - '7:0'
-          description: '802.11 signal type: 0x01: Wi-Fi b, 0x02: Wi-Fi g, 0x03: Wi-Fi n, 0x04: All signals (b then g/n on
-            same channel), 0x05-0xFF: RFU'
+          description: '802.11 standard selection: B (1), G (2), N (3) or All (4)'
           enum:
-            WIFI_TYPE_B: 1
-            WIFI_TYPE_G: 2
-            WIFI_TYPE_N: 3
-            WIFI_TYPE_ALL: 4
+            B: 1
+            G: 2
+            N: 3
+            ALL: 4
         - name: chan_mask
           bit_width: 16
           byte_positions:
@@ -2764,8 +2763,7 @@ categories:
             - '7:0'
           - - 4
             - '7:0'
-          description: Channel mask [0 0 Ch14 Ch13 Ch12 Ch11 Ch10 Ch9 Ch8 Ch7 Ch6 Ch5 Ch4 Ch3 Ch2 Ch1]. Bit=1 indicates channel
-            must be scanned
+          description: Channel mask [0 0 Ch14 Ch13 Ch12 Ch11 Ch10 Ch9 Ch8 Ch7 Ch6 Ch5 Ch4 Ch3 Ch2 Ch1]. Bit=1 indicates channel must be scanned
         - name: acq_mode
           bit_width: 8
           byte_positions:
@@ -2784,8 +2782,7 @@ categories:
           byte_positions:
           - - 6
             - '7:0'
-          description: Maximum number of different MAC addresses as result (≤32). Scan stops when reached. Duplicate MAC with
-            different RSSI ignored.
+          description: Maximum number of different MAC addresses as result (≤32). Scan stops when reached. Duplicate MAC with different RSSI ignored.
         - name: nb_scan_per_chan
           bit_width: 8
           byte_positions:
@@ -2801,27 +2798,27 @@ categories:
             - '7:0'
           description: 'Preamble Search mode timeout in ms (1-65535). Example: 105ms for 102.4ms beacon period'
         - name: abort_on_timeout
-          bit_width: 8
+          bit_width: 1
           byte_positions:
           - - 10
-            - '7:0'
-          description: 'If 1: abort scan on this channel and jump to next on preamble timeout. If 0: continue'
+            - '0'
+          description: 'On timeout, abort scan on this channel and jump to next one.'
       WifiScanTimeLimit:
         opcode: 769
         description: Searches for Wi-Fi MAC addresses during configurable maximal time. Duration may be exceeded due to crystal
           drift and last signal detection. T_max = N_channel x ((1 + Xtal_precision) x Timeout + T_offset)
         parameters:
-        - name: signal_type
+        - name: wifi_standard
           bit_width: 8
           byte_positions:
           - - 2
             - '7:0'
-          description: See WifiScan signal_type
+          description: '802.11 standard selection: B (1), G (2), N (3) or All (4)'
           enum:
-            WIFI_TYPE_B: 1
-            WIFI_TYPE_G: 2
-            WIFI_TYPE_N: 3
-            WIFI_TYPE_ALL: 4
+            B: 1
+            G: 2
+            N: 3
+            ALL: 4
         - name: chan_mask
           bit_width: 16
           byte_positions:
@@ -2899,11 +2896,11 @@ categories:
             - '7:0'
           description: Timeout for preamble detection phase in ms
         - name: abort_on_timeout
-          bit_width: 8
+          bit_width: 1
           byte_positions:
           - - 8
-            - '7:0'
-          description: 'If 1: abort on preamble detection timeout. If 0: continue'
+            - '0'
+          description: 'On timeout, abort scan on this channel and jump to next one.'
       WifiCountryCodeTimeLimit:
         opcode: 771
         description: Searches for Wi-Fi MAC addresses during configurable maximal time for country code extraction. T_max
@@ -2968,23 +2965,201 @@ categories:
           - - 3
             - '7:0'
           description: Number of Wi-Fi AP MAC Addresses to read (1-32)
-        - name: format
+        - name: wifi_result_format
           bit_width: 8
           byte_positions:
           - - 4
             - '7:0'
-          description: 'Result format: 0x01: Basic Complete (22 or 79 bytes), 0x04: Basic MAC/Type/Channel (9 bytes), other:
-            RFU'
+          description: 'Result format: 0x01: Basic Complete (22 or 79 bytes), 0x04: Basic MAC/Type/Channel (9 bytes)'
           enum:
-            BASIC_COMPLETE: 1
-            BASIC_MAC_TYPE_CHANNEL: 4
+            LONG: 1
+            SHORT: 4
         status_fields:
-        - name: results
-          bit_width: 0
-          byte_positions: []
-          description: 'Variable length results byte stream. Format 0x04: WifiType(1), ChannelInfo(1), RSSI(1), MAC(6). Format
-            0x01: adds FrameCtrl(2), PhiOffset(2), Timestamp(8), PeriodBeacon(2). Format 0x01 with mode 0x04: 79 bytes with
-            extended fields'
+        - name: wifi_standard
+          bit_width: 8
+          byte_positions: [[0, "7:0"]]
+          description: '802.11 standard selection: B (1), G (2), N (3) or All (4)'
+          enum:
+            B: 1
+            G: 2
+            N: 3
+            ALL: 4
+        - name: channel_id
+          bit_width: 4
+          byte_positions: [[1, "3:0"]]
+          description: Channel ID (0-14)
+        - name: mac_origin
+          bit_width: 2
+          byte_positions: [[1, "5:4"]]
+          description: Origin field
+          enum:
+            GATEWAY: 1
+            PHONE  : 2
+            UNKNOWN: 3
+        - name: is_end_device
+          bit_width: 1
+          byte_positions: [[1, "6"]]
+          description: 1 when TX is an end-point, and 0 when it is an access-point
+        - name: rssi
+          bit_width: 8
+          byte_positions: [[2, "7:0"]]
+          description: RSSI value of captured signal (-dBm)
+        - name: mac
+          bit_width: 48
+          byte_positions: [[3, "7:0"], [4, "7:0"], [5, "7:0"], [6, "7:0"], [7, "7:0"], [8, "7:0"]]
+          description: MAC Address
+      WifiReadLongResults:
+        opcode: -1
+        parameters: []
+        status_fields:
+        - name: wifi_standard
+          bit_width: 8
+          byte_positions: [[0, "7:0"]]
+          description: '802.11 standard selection: B (1), G (2), N (3) or All (4)'
+          enum:
+            B: 1
+            G: 2
+            N: 3
+            ALL: 4
+        - name: channel_id
+          bit_width: 4
+          byte_positions: [[1, "3:0"]]
+          description: Channel ID (0-14)
+        - name: frame_type
+          bit_width: 2
+          byte_positions: [[1, "5:4"]]
+          description: Frame type flag
+          enum:
+            MANAGEMENT: 0
+            CONTROL: 1
+            DATA: 2
+            RESERVED: 3
+        - name: is_end_device
+          bit_width: 1
+          byte_positions: [[1, "6"]]
+          description: 1 when TX is an end-point, and 0 when it is an access-point
+        - name: rssi
+          bit_width: 8
+          byte_positions: [[2, "7:0"]]
+          description: RSSI value of captured signal (-dBm)
+        - name: frame_ctrl
+          bit_width: 8
+          byte_positions: [[3, "7:0"]]
+          description: Frame Ctrl field
+        - name: mac
+          bit_width: 48
+          byte_positions: [[4, "7:0"], [5, "7:0"], [6, "7:0"], [7, "7:0"], [8, "7:0"], [9, "7:0"]]
+          description: MAC Address
+        - name: phi_offset
+          bit_width: 16
+          byte_positions: [[10, "7:0"], [11, "7:0"]]
+          description: Phase offset (used to compute frequency offset)
+        - name: timestamp
+          bit_width: 64
+          byte_positions: [[12, "7:0"], [13, "7:0"], [14, "7:0"], [15, "7:0"], [16, "7:0"], [17, "7:0"], [18, "7:0"], [19, "7:0"]]
+          description: AP uptime in us
+        - name: beacon_period
+          bit_width: 16
+          byte_positions: [[20, "7:0"], [21, "7:0"]]
+          description: Beacon Period in Time Unit
+      WifiReadExtendedResults:
+        opcode: -1
+        parameters: []
+        status_fields:
+        - name: wifi_standard
+          bit_width: 8
+          byte_positions: [[0, "7:0"]]
+          description: '802.11 standard selection: B (1), G (2), N (3) or All (4)'
+          enum:
+            B: 1
+            G: 2
+            N: 3
+            ALL: 4
+        - name: channel_id
+          bit_width: 4
+          byte_positions: [[1, "3:0"]]
+          description: Channel ID (0-14)
+        - name: frame_type
+          bit_width: 2
+          byte_positions: [[1, "5:4"]]
+          description: Frame type flag
+          enum:
+            MANAGEMENT: 0
+            CONTROL: 1
+            DATA: 2
+            RESERVED: 3
+        - name: is_end_device
+          bit_width: 1
+          byte_positions: [[1, "6"]]
+          description: 1 when TX is an end-point, and 0 when it is an access-point
+        - name: rssi
+          bit_width: 8
+          byte_positions: [[2, "7:0"]]
+          description: RSSI value of captured signal (-dBm)
+        - name: rate
+          bit_width: 8
+          byte_positions: [[3, "7:0"]]
+          description: Datarate. Coding depends on standard
+        - name: service
+          bit_width: 16
+          byte_positions: [[4, "7:0"], [5, "7:0"]]
+          description: Datarate. Coding depends on standard
+        - name: length
+          bit_width: 16
+          byte_positions: [[6, "7:0"], [7, "7:0"]]
+          description: Datarate. Coding depends on standard
+        - name: frame_ctrl
+          bit_width: 16
+          byte_positions: [[8, "7:0"], [9, "7:0"]]
+          description: Datarate. Coding depends on standard
+        - name: mac0
+          bit_width: 48
+          byte_positions: [[10, "7:0"], [11, "7:0"], [12, "7:0"], [13, "7:0"], [14, "7:0"], [15, "7:0"]]
+          description: MAC Address 0
+        - name: mac1
+          bit_width: 48
+          byte_positions: [[16, "7:0"], [17, "7:0"], [18, "7:0"], [19, "7:0"], [20, "7:0"], [21, "7:0"]]
+          description: MAC Address 1
+        - name: mac2
+          bit_width: 48
+          byte_positions: [[22, "7:0"], [23, "7:0"], [24, "7:0"], [25, "7:0"], [26, "7:0"], [27, "7:0"]]
+          description: MAC Address 2
+        - name: timestamp
+          bit_width: 64
+          byte_positions: [[28, "7:0"], [29, "7:0"], [30, "7:0"], [31, "7:0"], [32, "7:0"], [33, "7:0"], [34, "7:0"], [35, "7:0"]]
+          description: AP uptime in us
+        - name: beacon_period
+          bit_width: 16
+          byte_positions: [[36, "7:0"], [37, "7:0"]]
+          description: Beacon Period in Time Unit
+        - name: seq_ctrl
+          bit_width: 16
+          byte_positions: [[38, "7:0"], [39, "7:0"]]
+          description: Beacon Period in Time Unit
+        - name: ssid[32]
+          bit_width: 8
+          byte_positions: [[40, "7:0"], [41, "7:0"], [42, "7:0"], [43, "7:0"], [44, "7:0"], [45, "7:0"], [46, "7:0"], [47, "7:0"], [48, "7:0"], [49, "7:0"], [50, "7:0"], [51, "7:0"], [52, "7:0"], [53, "7:0"], [54, "7:0"], [55, "7:0"], [56, "7:0"], [57, "7:0"], [58, "7:0"], [59, "7:0"], [60, "7:0"], [61, "7:0"], [62, "7:0"], [63, "7:0"], [64, "7:0"], [65, "7:0"], [66, "7:0"], [67, "7:0"], [68, "7:0"], [69, "7:0"], [70, "7:0"], [71, "7:0"]]
+          description: SSID byted
+        - name: channel_num
+          bit_width: 8
+          byte_positions: [[72, "7:0"]]
+          description: Channel Number
+        - name: country
+          bit_width: 16
+          byte_positions: [[73, "7:0"], [74, "7:0"]]
+          description: Country code in ASCII
+        - name: io
+          bit_width: 8
+          byte_positions: [[75, "7:0"]]
+          description: Character indicating if AP is Indoot (I), Outdoor (O) or anywhere ( )
+        - name: fcs_ok
+          bit_width: 1
+          byte_positions: [[76, "0"]]
+          description: Indicates if packet check sequence is ok or in error
+        - name: phi_offset
+          bit_width: 16
+          byte_positions: [[77, "7:0"], [78, "7:0"]]
+          description: Phase offset (used to compute frequency offset)
       WifiResetCumulTimings:
         opcode: 775
         description: Resets Wi-Fi Passive Scanning cumulative timings. Must be called prior to executing Wi-Fi Passive Scanning
@@ -3074,12 +3249,34 @@ categories:
             - '7:0'
           description: Number of Country Code results to read (1-32)
         status_fields:
-        - name: results
-          bit_width: 0
-          byte_positions: []
-          description: 'Variable length results (10 bytes per result): CountryCode[0-1] (ASCII), IOReg (ASCII: ''I''=Indoor,
-            ''O''=Outdoor, '' ''=Any), ChannelInfo (bits 0-3: ChannelID, 4-5: MacOrigin, 6: RssiValidation, 7: Reserved),
-            MAC[6-1]'
+        - name: country
+          bit_width: 16
+          byte_positions: [[0, "7:0"], [1, "7:0"]]
+          description: Country code in ASCII
+        - name: io
+          bit_width: 8
+          byte_positions: [[2, "7:0"]]
+          description: Character indicating if AP is Indoot (I), Outdoor (O) or anywhere ( )
+        - name: channel_id
+          bit_width: 4
+          byte_positions: [[3, "3:0"]]
+          description: Channel ID (0-14)
+        - name: mac_origin
+          bit_width: 2
+          byte_positions: [[3, "5:4"]]
+          description: Origin field
+          enum:
+            GATEWAY: 1
+            PHONE  : 2
+            UNKNOWN: 3
+        - name: is_end_device
+          bit_width: 1
+          byte_positions: [[3, "6"]]
+          description: 1 when TX is an end-point, and 0 when it is an access-point
+        - name: mac
+          bit_width: 48
+          byte_positions: [[4, "7:0"], [5, "7:0"], [6, "7:0"], [7, "7:0"], [8, "7:0"], [9, "7:0"]]
+          description: MAC Address
       WifiCfgTimestampAPphone:
         opcode: 779
         description: Configures timestamp threshold to discriminate mobile access point from gateways. Default 1 day. If timestamp

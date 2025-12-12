@@ -90,9 +90,22 @@ def validate_field(field: Field, context: str) -> None:
             if msb < lsb:
                 raise ValidationError(f"{context}: invalid bit range '{pos.bit_range}' for field '{field.name}' (MSB < LSB)")
             total_bits += (msb - lsb + 1)
-        
-        if total_bits != field.bit_width:
-            raise ValidationError(f"{context}: bit_width ({field.bit_width}) doesn't match byte_positions total ({total_bits}) for field '{field.name}'")
+        # Extract array size
+        (name,dim) = field_name_dim(field)
+
+        if total_bits / dim != field.bit_width:
+            raise ValidationError(f"{context}: bit_width ({field.bit_width}) doesn't match byte_positions total ({total_bits}) for field '{name}'")
+
+        if dim > 1 and field.bit_width != 8:
+            raise ValidationError(f"{context}: array field '{name}' must be 8b")
+
+def field_name_dim(field: Field) -> tuple[str,int]:
+    s = field.name.split('[')
+    if len(s) == 2 and s[1].endswith(']'):
+        return (s[0], int(s[1][:-1]))
+    if len(s) == 1:
+        return (s[0], 1)
+    raise ValidationError(f"Invalid name format: {field.name}")
 
 def parse_field(field_data: dict[str, Any], context: str) -> Field:  # pyright: ignore[reportExplicitAny]
     """Parse a field from YAML data"""
@@ -145,11 +158,12 @@ def get_rust_type(field: Field) -> str:
         if t == 'TriggerStart':
             t = 'CaptureTrigger'
         return enum_remap.get(t,t)
-    elif field.bit_width == 0:
+    elif field.bit_width == 0 or '[' in field.name:
         return "&[u8]"  # Variable length
     elif field.bit_width == 1:
         return "bool"
     elif field.bit_width <= 8:
+
         return "i8" if field.signed else "u8"
     elif field.bit_width <= 16:
         return "i16" if field.signed else "u16"
@@ -243,7 +257,7 @@ def gen_enum(field: Field) -> str:
         lines.append("        }")
         lines.append("    }")
         lines.append("}")
-    if enum_name in ['PacketType', 'HwType', 'LoraCr']:
+    if enum_name in ['PacketType', 'HwType', 'LoraCr', 'WifiStandard', 'FrameType', 'MacOrigin']:
         # For response add impl From<u8>, treating the first value as default one in case of invalid answer
         lines.append(f"\nimpl From<u8> for {enum_name} {{")
         lines.append(f"    fn from(value: u8) -> Self {{")
@@ -392,24 +406,35 @@ def gen_rsp(cmd: Command, _category: str, advanced: bool = False) -> str:
         fields = [f for f in cmd.status_fields if not f.optional]
     
     buffer_size = size_of(fields)
+    generic_rsp = cmd.name != "GetStatus" and len(fields)>0 and len(fields[0].byte_positions)>0 and fields[0].byte_positions[0].byte_index == 0
     
     lines = [f"/// Response for {cmd.name} command"]
-    lines.append("#[derive(Default)]")
+    if not generic_rsp:
+        lines.append("#[derive(Default)]")
     lines.append(f"pub struct {struct_name}([u8; {buffer_size}]);")
     lines.append("")
     lines.append(f"impl {struct_name} {{")
-    lines.append("    /// Create a new response buffer")
-    lines.append("    pub fn new() -> Self {")
-    lines.append("        Self::default()")
-    lines.append("    }")
-    lines.append("")
-    lines.append("    /// Return Status")
-    lines.append("    pub fn status(&mut self) -> Status {")
-    if cmd.name == "GetStatus" :
-        lines.append("        Status::from_array([self.0[0], self.0[1]]) ")
-    else :
-        lines.append("        self.0[0].into()")
-    lines.append("    }")
+
+    if generic_rsp:
+        lines.append("")
+        lines.append("    /// Create struct from existing response buffer")
+        lines.append("    pub fn from_slice(buffer: &[u8]) -> Self {")
+        lines.append(f"        let raw : [u8; {buffer_size}] = buffer.try_into().expect(\"Buffer size should match response size !\");")
+        lines.append("        Self(raw)")
+        lines.append("    }")
+    else:
+        lines.append("    /// Create a new response buffer")
+        lines.append("    pub fn new() -> Self {")
+        lines.append("        Self::default()")
+        lines.append("    }")
+        lines.append("")
+        lines.append("    /// Return Status")
+        lines.append("    pub fn status(&mut self) -> Status {")
+        if cmd.name == "GetStatus" :
+            lines.append("        Status::from_array([self.0[0], self.0[1]]) ")
+        else :
+            lines.append("        self.0[0].into()")
+        lines.append("    }")
 
     # Generate accessor methods for each field
     for field in fields:
@@ -418,7 +443,8 @@ def gen_rsp(cmd: Command, _category: str, advanced: bool = False) -> str:
             lines.append(f"    // TODO: Implement accessor for variable length field '{field.name}'")
             continue
         
-        return_type = get_rust_type(field).replace('&[u8]', 'u32')  # Variable length becomes u32 for now
+        return_type = get_rust_type(field)
+        (name,dim) = field_name_dim(field)
         
         lines.append(f"")
         desc = field.description.replace('[', '(').replace(']', ')')
@@ -427,16 +453,20 @@ def gen_rsp(cmd: Command, _category: str, advanced: bool = False) -> str:
         # Custom implementation
         if cmd.name == 'GetStatus':
             if field.name=='intr':
-                lines.append(f"    pub fn {field.name}(&self) -> Intr {{")
+                lines.append('    pub fn intr(&self) -> Intr {')
                 lines.append('        Intr::from_slice(&self.0[2..6])')
                 lines.append('    }')
             continue
 
         # Implementation
-        lines.append(f"    pub fn {field.name}(&self) -> {return_type} {{")
+        lines.append(f"    pub fn {name}(&self) -> {return_type} {{")
         l = '        '
         
-        if len(field.byte_positions) == 1 and field.bit_width <= 8:
+        if dim > 1:
+            start = field.byte_positions[0].byte_index
+            stop = field.byte_positions[-1].byte_index
+            l += f'&self.0[{start}..{stop}]'
+        elif len(field.byte_positions) == 1 and field.bit_width <= 8:
             # Simple single byte case
             pos = field.byte_positions[0]
             msb, lsb = pos.get_bit_range_tuple()

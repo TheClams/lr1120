@@ -657,3 +657,6 @@ impl AsMut<[u8]> for SemtechJoinEuiRsp {
         &mut self.0
     }
 }
+
+// Commands with variable length parameters (not implemented):
+// - WriteBuffer8
