@@ -26,6 +26,13 @@
 //! - [`set_lf_clk`](Lr1120::set_lf_clk) - Configure the LF clock
 //! - [`set_tcxo`](Lr1120::set_tcxo) - Configure the chip to use a TCXO
 //!
+//! ### TX/RX Buffer
+//! - [`fn wr_tx_buffer_from`](Lr1120::fn wr_tx_buffer_from) - Write TX data
+//! - [`fn wr_tx_buffer`](Lr1120::fn wr_tx_buffer) - Send TX data using internal buffer
+//! - [`fn clear_rx_buffer`](Lr1120::fn clear_rx_buffer) - Clear RX Buffer
+//! - [`fn rd_rx_buffer_to`](Lr1120::fn rd_rx_buffer_to) - Read data from the RX buffer
+//! - [`fn rd_rx_buffer`](Lr1120::fn rd_rx_buffer) - Read data from the LR1120 buffer to the local buffer
+//!
 //! ### I/O Management
 //! - [`set_dio_irq`](Lr1120::set_dio_irq) - Configure a DIO pin for interrupt generation
 //!
@@ -206,7 +213,7 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
     /// Configure regulator (LDO or DCDC)
     /// Shall only be called while in Standby RC
     pub async fn set_regulator_mode(&mut self, dcdc_en: bool) -> Result<(), Lr1120Error> {
-        let mode = if dcdc_en {RegMode::DcdcEnabled} else {RegMode::DcdcEnabled};
+        let mode = if dcdc_en {RegMode::DcdcEnabled} else {RegMode::LdoOnly};
         let req = set_reg_mode_cmd(mode);
         self.cmd_wr(&req).await
     }
@@ -253,6 +260,43 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
         let mut rsp = RandomNumberRsp::new();
         self.cmd_rd(&req, rsp.as_mut()).await?;
         Ok(rsp.random_number())
+    }
+
+    /// Write TX data
+    pub async fn wr_tx_buffer_from(&mut self, buffer: &[u8]) -> Result<(), Lr1120Error> {
+        let req = write_buffer8_cmd();
+        self.cmd_data_wr(&req, buffer).await
+    }
+
+    /// Send TX data using internal buffer
+    pub async fn wr_tx_buffer(&mut self, len: usize) -> Result<(), Lr1120Error> {
+        let req = write_buffer8_cmd();
+        self.cmd_wr_begin(&req).await?;
+        self.spi
+            .transfer_in_place(&mut self.buffer.data_mut()[..len]).await
+            .map_err(|_| Lr1120Error::Spi)?;
+        self.nss.set_high().map_err(|_| Lr1120Error::Pin)
+    }
+
+    /// Clear RX Buffer
+    pub async fn clear_rx_buffer(&mut self) -> Result<(), Lr1120Error> {
+        self.cmd_wr(&clear_rx_buffer_cmd()).await
+    }
+
+    /// Read data from the RX buffer
+    pub async fn rd_rx_buffer_to(&mut self, offset: u8, buffer: &mut[u8]) -> Result<(), Lr1120Error> {
+        let req = read_buffer8_cmd(offset, buffer.len() as u8);
+        self.cmd_data_rw(&req, buffer).await
+    }
+
+    /// Read data from the LR1120 buffer to the local buffer
+    pub async fn rd_rx_buffer(&mut self, offset: u8, len: u8) -> Result<(), Lr1120Error> {
+        let req = read_buffer8_cmd(offset, len);
+        self.cmd_wr_begin(&req).await?;
+        self.spi
+            .transfer_in_place(&mut self.buffer.data_mut()[..len as usize]).await
+            .map_err(|_| Lr1120Error::Spi)?;
+        self.nss.set_high().map_err(|_| Lr1120Error::Pin)
     }
 
     /// Read a register value

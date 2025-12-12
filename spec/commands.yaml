@@ -2281,11 +2281,11 @@ categories:
       WriteBuffer8:
         opcode: 265
         description: Writes a block of bytes into the radio TX buffer (up to 255 bytes)
-        parameters:
-        - name: data
-          bit_width: 0
-          byte_positions: []
-          description: Data bytes to write to TX buffer (maximum 255 bytes)
+        parameters: []
+        # - name: data
+        #   bit_width: 0
+        #   byte_positions: []
+        #   description: Data bytes to write to TX buffer (maximum 255 bytes)
       ReadBuffer8:
         opcode: 266
         description: Reads a block of bytes from the radio RX buffer starting at a specific offset. RX buffer must be implemented as a ring buffer.
@@ -2302,11 +2302,11 @@ categories:
           - - 3
             - '7:0'
           description: Number of bytes to read
-        status_fields:
-        - name: data
-          bit_width: 0
-          byte_positions: []
-          description: Data bytes read from RX buffer
+        # status_fields:
+        # - name: data
+        #   bit_width: 0
+        #   byte_positions: []
+        #   description: Data bytes read from RX buffer
       ClearRxBuffer:
         opcode: 267
         description: Clears all data in the radio RX buffer by writing '0' over the whole buffer. Mainly used for debug purposes.

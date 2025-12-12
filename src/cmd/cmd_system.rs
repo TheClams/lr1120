@@ -93,8 +93,13 @@ pub fn clear_errors_cmd() -> [u8; 2] {
     [0x01, 0x0E]
 }
 
+/// Writes a block of bytes into the radio TX buffer (up to 255 bytes)
+pub fn write_buffer8_cmd() -> [u8; 2] {
+    [0x01, 0x09]
+}
+
 /// Reads a block of bytes from the radio RX buffer starting at a specific offset. RX buffer must be implemented as a ring buffer.
-pub fn read_buffer8_req(offset: u8, len: u8) -> [u8; 4] {
+pub fn read_buffer8_cmd(offset: u8, len: u8) -> [u8; 4] {
     let mut cmd = [0u8; 4];
     cmd[0] = 0x01;
     cmd[1] = 0x0A;
@@ -325,8 +330,6 @@ impl StatusRsp {
         Status::from_array([self.0[0], self.0[1]]) 
     }
 
-    /// Status register with command status, interrupt status, reset source, and chip mode
-
     /// IRQ status register
     pub fn intr(&self) -> Intr {
         Intr::from_slice(&self.0[2..6])
@@ -431,29 +434,6 @@ impl defmt::Format for ErrorsRsp {
         if self.lf_xosc_start() {defmt::write!(f, "LfXoscStart ")};
         if self.pll_lock()      {defmt::write!(f, "PllLock ")};
         if self.rx_adc_offset() {defmt::write!(f, "RxAdcOffset ")};
-    }
-}
-
-/// Response for ReadBuffer8 command
-#[derive(Default)]
-pub struct ReadBuffer8Rsp([u8; 2]);
-
-impl ReadBuffer8Rsp {
-    /// Create a new response buffer
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Return Status
-    pub fn status(&mut self) -> Status {
-        self.0[0].into()
-    }
-    // TODO: Implement accessor for variable length field 'data'
-}
-
-impl AsMut<[u8]> for ReadBuffer8Rsp {
-    fn as_mut(&mut self) -> &mut [u8] {
-        &mut self.0
     }
 }
 
@@ -657,6 +637,3 @@ impl AsMut<[u8]> for SemtechJoinEuiRsp {
         &mut self.0
     }
 }
-
-// Commands with variable length parameters (not implemented):
-// - WriteBuffer8

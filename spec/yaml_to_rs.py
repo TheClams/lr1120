@@ -446,9 +446,11 @@ def gen_rsp(cmd: Command, _category: str, advanced: bool = False) -> str:
         return_type = get_rust_type(field)
         (name,dim) = field_name_dim(field)
         
-        lines.append(f"")
-        desc = field.description.replace('[', '(').replace(']', ')')
-        lines.append(f"    /// {desc}")
+
+        if cmd.name != 'GetStatus' or field.name=='intr':
+            lines.append(f"")
+            desc = field.description.replace('[', '(').replace(']', ')')
+            lines.append(f"    /// {desc}")
 
         # Custom implementation
         if cmd.name == 'GetStatus':
