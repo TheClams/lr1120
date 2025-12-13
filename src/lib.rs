@@ -70,6 +70,7 @@ pub mod lora;
 pub mod fsk;
 pub mod lrfhss;
 pub mod wifi_scan;
+pub mod crypto;
 
 use core::marker::PhantomData;
 
@@ -222,6 +223,8 @@ pub enum Lr1120Error {
     BusyTimeout,
     /// Command with invalid size (>18B)
     InvalidSize,
+    /// Command with invalid parameter
+    InvalidParam,
     /// Unknown error
     Unknown,
 }
@@ -325,7 +328,7 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
         self.buffer.cmd_status().check()
     }
 
-    /// Write a command with vairable length payload
+    /// Write a command with variable length payload
     /// Any feedback data will be available in side the local buffer
     pub async fn cmd_data_wr(&mut self, opcode: &[u8], data: &[u8]) -> Result<(), Lr1120Error> {
         self.cmd_wr_begin(opcode).await?;
@@ -348,11 +351,28 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
     /// Write a command with variable length payload, and save result in local buffer
     pub async fn cmd_data_rw_l(&mut self, opcode: &[u8], rsp_len: usize) -> Result<(), Lr1120Error> {
         self.cmd_wr_begin(opcode).await?;
+        self.rsp_rd(rsp_len).await
+    }
+
+    /// Read response from SPI into local buffer
+    pub async fn rsp_rd(&mut self, rsp_len: usize) -> Result<(), Lr1120Error> {
         self.buffer.nop();
         self.spi
             .transfer_in_place(&mut self.buffer.data_mut()[..rsp_len]).await
             .map_err(|_| Lr1120Error::Spi)?;
-        self.nss.set_high().map_err(|_| Lr1120Error::Pin)
+        self.nss.set_high().map_err(|_| Lr1120Error::Pin)?;
+        self.buffer.cmd_status().check()
+    }
+
+    /// Read response from SPI into local buffer
+    pub async fn rsp_rd_to(&mut self, rsp:  &mut [u8]) -> Result<(), Lr1120Error> {
+        self.spi
+            .transfer_in_place(rsp).await
+            .map_err(|_| Lr1120Error::Spi)?;
+        self.nss.set_high().map_err(|_| Lr1120Error::Pin)?;
+        // Save the first byte from the response to keep the command status
+        self.buffer.updt_status(rsp);
+        self.buffer.cmd_status().check()
     }
 
     /// Send content of the local buffer as a command
@@ -363,7 +383,8 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
         self.spi
             .transfer_in_place(&mut self.buffer.data_mut()[..len]).await
             .map_err(|_| Lr1120Error::Spi)?;
-        self.nss.set_high().map_err(|_| Lr1120Error::Pin)
+        self.nss.set_high().map_err(|_| Lr1120Error::Pin)?;
+        self.buffer.cmd_status().check()
     }
 
     /// Send content of the local buffer as a command and read a response

@@ -8,24 +8,50 @@ categories:
         parameters:
         - name: key_id
           bit_width: 8
-          byte_positions:
-          - - 2
-            - '7:0'
-          description: 'Key identifier (2-27). See key usage table: 2: NwkKey, 3: AppKey, 4: JSEncKey, 5: JSIntKey, 6-11:
-            GpKEKey0-5, 12-15: Unicast keys (AppSKey, FNwkSIntKey, SNwkSIntKey, NwkSEncKey), 16-17: RFU, 18-25: Multicast
-            keys (McAppSKey0-3, McNwkSKey0-3), 26-27: GP0-1. Other values reserved.'
+          byte_positions: [[2,'7:0']]
+          description: 'Key identifier'
+          enum:
+            NWK: 2
+            APP: 3
+            JS_ENC: 4
+            JS_INT: 5
+            GP_KE0: 6
+            GP_KE1: 7
+            GP_KE2: 8
+            GP_KE3: 9
+            GP_KE4: 10
+            GP_KE5: 11
+            APP_S: 12
+            F_NWK_S_INT: 13
+            S_NWK_S_INT: 14
+            NWK_S_ENC: 15
+            RFU0: 16
+            RFU1: 17
+            MC_APP_S0: 18
+            MC_APP_S1: 19
+            MC_APP_S2: 20
+            MC_APP_S3: 21
+            MC_NWK_S0: 22
+            MC_NWK_S1: 23
+            MC_NWK_S2: 24
+            MC_NWK_S3: 25
+            GP0: 26
+            GP1: 27
         - name: key
-          bit_width: 0
-          byte_positions: []
-          description: '16-byte AES-128 key array. Example: Key K (2b7e151628aed2a6abf7158809cf4f3c) has Key1=0x2b, Key2=0x7e,
-            ... Key16=0x3c'
+          bit_width: 128
+          byte_positions: [[3,"7:0"],[4,"7:0"],[5,"7:0"],[6,"7:0"],[7,"7:0"],[8,"7:0"],[9,"7:0"],[10,"7:0"],[11,"7:0"],[12,"7:0"],[13,"7:0"],[14,"7:0"],[15,"7:0"],[16,"7:0"],[17,"7:0"],[18,"7:0"]]
+          description: 16-bytes AES-128
         status_fields:
         - name: ce_status
           bit_width: 8
-          byte_positions:
-          - - 1
-            - '7:0'
-          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
+          byte_positions: [[1, "7:0"]]
+          description: 'Crypto Engine status'
+          enum:
+            SUCCESS: 0
+            FAIL_CMAC: 1
+            INV_KEY_ID: 3
+            BUF_SIZE: 5
+            ERROR: 6
       CryptoDeriveKey:
         opcode: 1283
         description: Derives (encrypts) input value into destination Key using source Key. Generated key stored in Crypto
@@ -33,28 +59,82 @@ categories:
         parameters:
         - name: src_key_id
           bit_width: 8
-          byte_positions:
-          - - 2
-            - '7:0'
-          description: Source Key ID (2-3, 6-11). See key usage table.
+          byte_positions: [[2,'7:0']]
+          description: 'Source Key identifier: Nwk, App or GpKe*'
+          enum:
+            Nwk: 2
+            App: 3
+            JsEnc: 4
+            JsInt: 5
+            GpKe0: 6
+            GpKe1: 7
+            GpKe2: 8
+            GpKe3: 9
+            GpKe4: 10
+            GpKe5: 11
+            AppS: 12
+            FNwkSInt: 13
+            SNwkSInt: 14
+            NwkSEnc: 15
+            Rfu0: 16
+            Rfu1: 17
+            McAppSKey0: 18
+            McAppSKey1: 19
+            McAppSKey2: 20
+            McAppSKey3: 21
+            McNwkSKey0: 22
+            McNwkSKey1: 23
+            McNwkSKey2: 24
+            McNwkSKey3: 25
+            Gp0: 26
+            Gp1: 27
         - name: dst_key_id
           bit_width: 8
-          byte_positions:
-          - - 3
-            - '7:0'
-          description: Destination Key ID (4-25). See key usage table.
+          byte_positions: [[3,'7:0']]
+          description: 'Destination Key identifier'
+          enum:
+            Nwk: 2
+            App: 3
+            JsEnc: 4
+            JsInt: 5
+            GpKe0: 6
+            GpKe1: 7
+            GpKe2: 8
+            GpKe3: 9
+            GpKe4: 10
+            GpKe5: 11
+            AppS: 12
+            FNwkSInt: 13
+            SNwkSInt: 14
+            NwkSEnc: 15
+            Rfu0: 16
+            Rfu1: 17
+            McAppSKey0: 18
+            McAppSKey1: 19
+            McAppSKey2: 20
+            McAppSKey3: 21
+            McNwkSKey0: 22
+            McNwkSKey1: 23
+            McNwkSKey2: 24
+            McNwkSKey3: 25
+            Gp0: 26
+            Gp1: 27
         - name: input
-          bit_width: 0
-          byte_positions: []
-          description: '16-byte input array (Input[1:16]). For LoRaWAN, includes DevNonce and other parameters with padding.
+          bit_width: 128
+          byte_positions: [[4,"7:0"],[5,"7:0"],[6,"7:0"],[7,"7:0"],[8,"7:0"],[9,"7:0"],[10,"7:0"],[11,"7:0"],[12,"7:0"],[13,"7:0"],[14,"7:0"],[15,"7:0"],[16,"7:0"],[17,"7:0"],[18,"7:0"],[19,"7:0"]]
+          description: '16-byte input value. For LoRaWAN, includes DevNonce and other parameters with padding.
             Example: FNwkSIntKey = CryptoDeriveKey(NwkKey, 0x01 | JoinNonce | NetID | DevNonce | pad_16)'
         status_fields:
         - name: ce_status
           bit_width: 8
-          byte_positions:
-          - - 1
-            - '7:0'
-          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
+          byte_positions: [[1, "7:0"]]
+          description: 'Crypto Engine status'
+          enum:
+            SUCCESS: 0
+            FAIL_CMAC: 1
+            INV_KEY_ID: 3
+            BUF_SIZE: 5
+            ERROR: 6
       CryptoProcessJoinAccept:
         opcode: 1284
         description: Decrypts join accept message (using AES-ECB encrypt per LoRaWAN spec) on Data and Header, then verifies
@@ -62,45 +142,46 @@ categories:
         parameters:
         - name: dec_key_id
           bit_width: 8
-          byte_positions:
-          - - 2
-            - '7:0'
+          byte_positions: [[2, "7:0"]]
           description: Key ID for decryption. See key usage table.
+          enum: ['']
         - name: ver_key_id
           bit_width: 8
-          byte_positions:
-          - - 3
-            - '7:0'
+          byte_positions: [[3, "7:0"]]
           description: Key ID for MIC verification. See key usage table.
+          enum: ['']
         - name: lorawan_version
           bit_width: 8
-          byte_positions:
-          - - 4
-            - '7:0'
-          description: 'Determines Header size: 0: LoRaWAN 1.0.x (1 byte MHDR), 1: LoRaWAN 1.1.x (12 bytes: SIntKey, JoinReqType,
-            JoinEUI, DevNonce, MHDR)'
+          byte_positions: [[4, "7:0"]]
+          description: 'Determines Header size:
+            - LoRaWAN 1.0: 1 byte MHDR
+            - LoRaWAN 1.1: 12 bytes with SIntKey, JoinReqType, JoinEUI, DevNonce, MHDR'
           enum:
-            LORAWAN_1_0: 0
-            LORAWAN_1_1: 1
-        - name: header
-          bit_width: 0
-          byte_positions: []
-          description: Variable length header (1 or 12 bytes depending on LoRaWANVer)
-        - name: data
-          bit_width: 0
-          byte_positions: []
-          description: Data to decrypt (16 or 32 bytes). Must include encrypted MIC.
+            V1_0: 0
+            V1_1: 1
+        # - name: header
+        #   bit_width: 0
+        #   byte_positions: []
+        #   description: Variable length header (1 or 12 bytes depending on LoRaWANVer)
+        # - name: data
+        #   bit_width: 0
+        #   byte_positions: []
+        #   description: Data to decrypt (16 or 32 bytes). Must include encrypted MIC.
         status_fields:
         - name: ce_status
           bit_width: 8
-          byte_positions:
-          - - 1
-            - '7:0'
-          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
-        - name: data
-          bit_width: 0
-          byte_positions: []
-          description: Decrypted data (16 or 32 bytes)
+          byte_positions: [[1, "7:0"]]
+          description: 'Crypto Engine status'
+          enum:
+            SUCCESS: 0
+            FAIL_CMAC: 1
+            INV_KEY_ID: 3
+            BUF_SIZE: 5
+            ERROR: 6
+        # - name: data
+        #   bit_width: 0
+        #   byte_positions: []
+        #   description: Decrypted data (16 or 32 bytes)
       CryptoComputeAesCmac:
         opcode: 1285
         description: Computes AES CMAC of provided data using specified Key and returns MIC (first 4 bytes of CMAC). Maximum
@@ -108,21 +189,24 @@ categories:
         parameters:
         - name: key_id
           bit_width: 8
-          byte_positions:
-          - - 2
-            - '7:0'
+          byte_positions: [[2, "7:0"]]
           description: Key ID (2, 5, 12-17). See key usage table.
-        - name: data
-          bit_width: 0
-          byte_positions: []
-          description: Data byte buffer (max 256 bytes)
+          enum: ['']
+        # - name: data
+        #   bit_width: 0
+        #   byte_positions: []
+        #   description: Data byte buffer (max 256 bytes)
         status_fields:
         - name: ce_status
           bit_width: 8
-          byte_positions:
-          - - 1
-            - '7:0'
-          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
+          byte_positions: [[1, "7:0"]]
+          description: 'Crypto Engine status'
+          enum:
+            SUCCESS: 0
+            FAIL_CMAC: 1
+            INV_KEY_ID: 3
+            BUF_SIZE: 5
+            ERROR: 6
         - name: mic
           bit_width: 32
           byte_positions:
@@ -142,10 +226,9 @@ categories:
         parameters:
         - name: key_id
           bit_width: 8
-          byte_positions:
-          - - 2
-            - '7:0'
+          byte_positions: [[2, "7:0"]]
           description: Key ID (2, 5, 12-25). See key usage table.
+          enum: ['']
         - name: expected_mic
           bit_width: 32
           byte_positions:
@@ -158,18 +241,21 @@ categories:
           - - 6
             - '7:0'
           description: Expected MIC (first 4 bytes of CMAC) to compare against
-        - name: data
-          bit_width: 0
-          byte_positions: []
-          description: Data byte buffer (max 256 bytes)
+        # - name: data
+        #   bit_width: 0
+        #   byte_positions: []
+        #   description: Data byte buffer (max 256 bytes)
         status_fields:
         - name: ce_status
           bit_width: 8
-          byte_positions:
-          - - 1
-            - '7:0'
-          description: 'Crypto Engine status: 0: SUCCESS (MICs match), 1: FAIL_CMAC (MICs differ), 3: INV_KEY_ID, 5: BUF_SIZE,
-            6: ERROR'
+          byte_positions: [[1, "7:0"]]
+          description: 'Crypto Engine status'
+          enum:
+            SUCCESS: 0
+            FAIL_CMAC: 1
+            INV_KEY_ID: 3
+            BUF_SIZE: 5
+            ERROR: 6
       CryptoAesEncrypt01:
         opcode: 1287
         description: Encrypts provided data using specified Key and returns encrypted data. Cannot be used on key indexes
@@ -177,25 +263,28 @@ categories:
         parameters:
         - name: key_id
           bit_width: 8
-          byte_positions:
-          - - 2
-            - '7:0'
+          byte_positions: [[2, "7:0"]]
           description: Key ID (12-25). See key usage table.
-        - name: data
-          bit_width: 0
-          byte_positions: []
-          description: Data byte buffer to encrypt (max 256 bytes). First byte must be 0x01.
+          enum: ['']
+        # - name: data
+        #   bit_width: 0
+        #   byte_positions: []
+        #   description: Data byte buffer to encrypt (max 256 bytes). First byte must be 0x01.
         status_fields:
         - name: ce_status
           bit_width: 8
-          byte_positions:
-          - - 1
-            - '7:0'
-          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
-        - name: encrypted_data
-          bit_width: 0
-          byte_positions: []
-          description: Encrypted data byte buffer
+          byte_positions: [[1, "7:0"]]
+          description: 'Crypto Engine status'
+          enum:
+            SUCCESS: 0
+            FAIL_CMAC: 1
+            INV_KEY_ID: 3
+            BUF_SIZE: 5
+            ERROR: 6
+        # - name: encrypted_data
+        #   bit_width: 0
+        #   byte_positions: []
+        #   description: Encrypted data byte buffer
       CryptoAesEncrypt:
         opcode: 1288
         description: Encrypts provided data using specified Key and returns encrypted data. For generic non-LoRaWAN operations
@@ -203,25 +292,28 @@ categories:
         parameters:
         - name: key_id
           bit_width: 8
-          byte_positions:
-          - - 2
-            - '7:0'
+          byte_positions: [[2, "7:0"]]
           description: 'Key ID (26-27 only: GP0, GP1). See key usage table.'
-        - name: data
-          bit_width: 0
-          byte_positions: []
-          description: Data byte buffer to encrypt (max 256 bytes)
+          enum: ['']
+        # - name: data
+        #   bit_width: 0
+        #   byte_positions: []
+        #   description: Data byte buffer to encrypt (max 256 bytes)
         status_fields:
         - name: ce_status
           bit_width: 8
-          byte_positions:
-          - - 1
-            - '7:0'
-          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
-        - name: encrypted_data
-          bit_width: 0
-          byte_positions: []
-          description: Encrypted data byte buffer
+          byte_positions: [[1, "7:0"]]
+          description: 'Crypto Engine status'
+          enum:
+            SUCCESS: 0
+            FAIL_CMAC: 1
+            INV_KEY_ID: 3
+            BUF_SIZE: 5
+            ERROR: 6
+        # - name: encrypted_data
+        #   bit_width: 0
+        #   byte_positions: []
+        #   description: Encrypted data byte buffer
       CryptoAesDecrypt:
         opcode: 1289
         description: Decrypts provided data using specified Key and returns decrypted data. For non-LoRaWAN security tasks
@@ -229,25 +321,28 @@ categories:
         parameters:
         - name: key_id
           bit_width: 8
-          byte_positions:
-          - - 2
-            - '7:0'
+          byte_positions: [[2, "7:0"]]
           description: Key ID (0-27). See key usage table.
-        - name: data
-          bit_width: 0
-          byte_positions: []
-          description: Data byte buffer to decrypt (max 256 bytes)
+          enum: ['']
+        # - name: data
+        #   bit_width: 0
+        #   byte_positions: []
+        #   description: Data byte buffer to decrypt (max 256 bytes)
         status_fields:
         - name: ce_status
           bit_width: 8
-          byte_positions:
-          - - 1
-            - '7:0'
-          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
-        - name: decrypted_data
-          bit_width: 0
-          byte_positions: []
-          description: Decrypted data byte buffer
+          byte_positions: [[1, "7:0"]]
+          description: 'Crypto Engine status'
+          enum:
+            SUCCESS: 0
+            FAIL_CMAC: 1
+            INV_KEY_ID: 3
+            BUF_SIZE: 5
+            ERROR: 6
+        # - name: decrypted_data
+        #   bit_width: 0
+        #   byte_positions: []
+        #   description: Decrypted data byte buffer
       CryptoStoreToFlash:
         opcode: 1290
         description: Stores all Keys and Parameters from Crypto Engine RAM into flash memory for persistence
@@ -255,10 +350,14 @@ categories:
         status_fields:
         - name: ce_status
           bit_width: 8
-          byte_positions:
-          - - 1
-            - '7:0'
-          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
+          byte_positions: [[1, "7:0"]]
+          description: 'Crypto Engine status'
+          enum:
+            SUCCESS: 0
+            FAIL_CMAC: 1
+            INV_KEY_ID: 3
+            BUF_SIZE: 5
+            ERROR: 6
       CryptoRestoreFromFlash:
         opcode: 1291
         description: Restores all Keys and Parameters from flash memory into Crypto Engine RAM
@@ -266,10 +365,14 @@ categories:
         status_fields:
         - name: ce_status
           bit_width: 8
-          byte_positions:
-          - - 1
-            - '7:0'
-          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
+          byte_positions: [[1, "7:0"]]
+          description: 'Crypto Engine status'
+          enum:
+            SUCCESS: 0
+            FAIL_CMAC: 1
+            INV_KEY_ID: 3
+            BUF_SIZE: 5
+            ERROR: 6
       CryptoSetParam:
         opcode: 1293
         description: Sets a specific Parameter into Crypto Engine RAM
@@ -295,10 +398,14 @@ categories:
         status_fields:
         - name: ce_status
           bit_width: 8
-          byte_positions:
-          - - 1
-            - '7:0'
-          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
+          byte_positions: [[1, "7:0"]]
+          description: 'Crypto Engine status'
+          enum:
+            SUCCESS: 0
+            FAIL_CMAC: 1
+            INV_KEY_ID: 3
+            BUF_SIZE: 5
+            ERROR: 6
       CryptoGetParam:
         opcode: 1294
         description: Gets a specific Parameter from Crypto Engine RAM
@@ -312,10 +419,14 @@ categories:
         status_fields:
         - name: ce_status
           bit_width: 8
-          byte_positions:
-          - - 1
-            - '7:0'
-          description: 'Crypto Engine status: 0: SUCCESS, 1: FAIL_CMAC, 3: INV_KEY_ID, 5: BUF_SIZE, 6: ERROR'
+          byte_positions: [[1, "7:0"]]
+          description: 'Crypto Engine status'
+          enum:
+            SUCCESS: 0
+            FAIL_CMAC: 1
+            INV_KEY_ID: 3
+            BUF_SIZE: 5
+            ERROR: 6
         - name: data
           bit_width: 32
           byte_positions:
@@ -346,11 +457,11 @@ categories:
           - - 5
             - '7:0'
           description: Offset in bytes (must be multiple of 4). First offset is 0
-        - name: data
-          bit_width: 0
-          byte_positions: []
-          description: Data chunk as 32-bit words (max 256 bytes, must be multiple of 4). N=64 for all chunks except last
-            which may be shorter
+        # - name: data
+        #   bit_width: 0
+        #   byte_positions: []
+        #   description: Data chunk as 32-bit words (max 256 bytes, must be multiple of 4). N=64 for all chunks except last
+        #     which may be shorter
       CryptoCheckEncryptedFirmwareImageResult:
         opcode: 1296
         description: Gets result of encrypted firmware image check after all chunks sent via CryptoCheckEncryptedFirmwareImage

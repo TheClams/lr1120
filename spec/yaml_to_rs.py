@@ -25,7 +25,13 @@ def snake_to_pascal(snake_str: str) -> str:
     return ''.join(word.capitalize() for word in s.split('_'))
 
 enum_remap : dict[str,str] = {
+    'SrcKeyId': 'KeyId',
+    'DstKeyId': 'KeyId',
+    'DecKeyId': 'KeyId',
+    'VerKeyId': 'KeyId',
 }
+
+rsp_enums: list[str] = ['PacketType', 'HwType', 'LoraCr', 'WifiStandard', 'FrameType', 'MacOrigin', 'CeStatus']
 
 @dataclass
 class BytePosition:
@@ -169,16 +175,16 @@ def get_rust_type(field: Field) -> str:
         return "i16" if field.signed else "u16"
     elif field.bit_width <= 32:
         return "i32" if field.signed else "u32"
-    else:
+    elif field.bit_width <= 64:
         return "i64" if field.signed else "u64"
+    else:
+        return "i128" if field.signed else "u128"
 
 def gen_enum(field: Field) -> str:
     """Generate Rust enum for a field"""
     if not field.enum:
         return ''
     enum_name = snake_to_pascal(field.name)
-    if enum_name == 'TriggerStart':
-        enum_name = 'CaptureTrigger'
     lines = ["",f"/// {field.description}"]
     more_derive = ', PartialOrd, Ord' if enum_name in ['Sf'] else ''
     lines.append(f"#[derive(Debug, Clone, Copy, PartialEq, Eq{more_derive})]")
@@ -257,7 +263,34 @@ def gen_enum(field: Field) -> str:
         lines.append("        }")
         lines.append("    }")
         lines.append("}")
-    if enum_name in ['PacketType', 'HwType', 'LoraCr', 'WifiStandard', 'FrameType', 'MacOrigin']:
+    elif enum_name == 'KeyId' :
+        lines.append("\nimpl KeyId {");
+        lines.append("    /// True when key is Network or application");
+        lines.append("    pub fn is_core(&self) -> bool {");
+        lines.append("        matches!(self, KeyId::Nwk|KeyId::App)");
+        lines.append("    }");
+        lines.append("\n    /// True when key is Lifetime");
+        lines.append("    pub fn is_lifetime(&self) -> bool {");
+        lines.append("        matches!(self, KeyId::JsEnc|KeyId::JsInt)");
+        lines.append("    }");
+        lines.append("\n    /// True when key is multicast");
+        lines.append("    pub fn is_multicast(&self) -> bool {");
+        lines.append("        matches!(self, KeyId::McAppS0|KeyId::McAppS1|KeyId::McAppS2|KeyId::McAppS3|KeyId::McNwkS0|KeyId::McNwkS1|KeyId::McNwkS2|KeyId::McNwkS3)");
+        lines.append("    }");
+        lines.append("\n    /// True when key is general purpose transport");
+        lines.append("    pub fn is_gp_transport(&self) -> bool {");
+        lines.append("        matches!(self, KeyId::GpKe0|KeyId::GpKe1|KeyId::GpKe2|KeyId::GpKe3|KeyId::GpKe4|KeyId::GpKe5)");
+        lines.append("    }");
+        lines.append("\n    /// True when key is unicast");
+        lines.append("    pub fn is_unicast(&self) -> bool {");
+        lines.append("        matches!(self, KeyId::AppS|KeyId::FNwkSInt|KeyId::SNwkSInt|KeyId::NwkSEnc|KeyId::Rfu0|KeyId::Rfu1)");
+        lines.append("    }");
+        lines.append("\n    /// True when key is general purpose");
+        lines.append("    pub fn is_gp(&self) -> bool {");
+        lines.append("        matches!(self, KeyId::Gp0|KeyId::Gp1)");
+        lines.append("    }");
+        lines.append("}");
+    if enum_name in rsp_enums:
         # For response add impl From<u8>, treating the first value as default one in case of invalid answer
         lines.append(f"\nimpl From<u8> for {enum_name} {{")
         lines.append(f"    fn from(value: u8) -> Self {{")
@@ -462,7 +495,7 @@ def gen_rsp(cmd: Command, _category: str, advanced: bool = False) -> str:
 
         # Implementation
         lines.append(f"    pub fn {name}(&self) -> {return_type} {{")
-        l = '        '
+        l : str = '        '
         
         if dim > 1:
             start = field.byte_positions[0].byte_index
@@ -613,7 +646,7 @@ def gen_file(category: str, commands: list[Command], output_dir: Path) -> None:
         for param in cmd.parameters:
             if param.enum:
                 n = snake_to_pascal(param.name)
-                if n in enum_remap.keys() or (n in ['RxBw', 'PulseShape'] and category!='fsk') or n=='TempFormat' or (n=='DioNum' and category=='lora'):
+                if n in enum_remap.keys() or len(param.enum) == 1:
                     continue
                 if n in enum_kind.keys():
                     if list(param.enum.keys()) != enum_kind[n]:
