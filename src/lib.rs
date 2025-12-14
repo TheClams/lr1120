@@ -15,9 +15,9 @@
 //!
 //! ## Hardware Requirements
 //!
-//! - **SPI interface** - For command and data communication with the LR1020
-//! - **Reset pin** - GPIO output pin connected to the LR1020's reset line (active low)
-//! - **Busy pin** - GPIO input pin connected to the LR1020's busy signal
+//! - **SPI interface** - For command and data communication with the LR1120
+//! - **Reset pin** - GPIO output pin connected to the LR1120's reset line (active low)
+//! - **Busy pin** - GPIO input pin connected to the LR1120's busy signal
 //! - **NSS pin** - SPI chip select pin (GPIO output)
 //!
 //! ## Driver Modes
@@ -52,8 +52,8 @@
 //!
 //! - `Pin` - GPIO pin operation failed  
 //! - `Spi` - SPI communication error
-//! - `CmdFail` - LR1020 command execution failed
-//! - `CmdErr` - Invalid command sent to LR1020
+//! - `CmdFail` - LR1120 command execution failed
+//! - `CmdErr` - Invalid command sent to LR1120
 //! - `BusyTimeout` - Timeout waiting for busy pin
 //! - `InvalidSize` - Command size exceeds buffer limits
 //!
@@ -62,15 +62,16 @@
 //! - `defmt` - Enable defmt logging support for debugging
 
 #![no_std]
-pub mod status;
 pub mod cmd;
 pub mod system;
+pub mod status;
 pub mod radio;
 pub mod lora;
 pub mod fsk;
 pub mod lrfhss;
 pub mod wifi_scan;
 pub mod crypto;
+pub mod gnss;
 
 use core::marker::PhantomData;
 
@@ -177,12 +178,12 @@ impl CmdBuffer {
 
     /// Give read access to the the last 256 bytes
     pub fn data(&self) -> &[u8] {
-        &self.0[2..]
+        &self.0[1..]
     }
 
-    /// Give read/write access to the the last 256 bytes
+    /// Give read/write access to the last 256 bytes
     pub fn data_mut(&mut self) -> &mut [u8] {
-        &mut self.0[2..]
+        &mut self.0[1..]
     }
 }
 
@@ -192,12 +193,18 @@ impl Default for CmdBuffer {
     }
 }
 
+impl AsMut<[u8]> for CmdBuffer {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0[2..]
+    }
+}
 
-/// LR1020 Device
+
+/// LR1120 Device
 pub struct Lr1120<O,SPI, M: BusyPin> {
     /// Reset pin  (active low)
     nreset: O,
-    /// Busy pin from the LR1020 indicating if the LR1020 is ready to handle commands
+    /// Busy pin from the LR1120 indicating if it is ready to handle commands
     busy: M::Pin,
     /// SPI device
     spi: SPI,
@@ -207,7 +214,7 @@ pub struct Lr1120<O,SPI, M: BusyPin> {
     buffer: CmdBuffer,
 }
 
-/// Error using the LR1020
+/// Error using the LR1120
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Lr1120Error {
@@ -233,7 +240,7 @@ pub enum Lr1120Error {
 impl<I,O,SPI> Lr1120<O,SPI, BusyBlocking<I>> where
     I: InputPin, O: OutputPin, SPI: SpiBus<u8>
 {
-    /// Create a LR1020 Device with blocking access on the busy pin
+    /// Create a LR1120 Device with blocking access on the busy pin
     pub fn new_blocking(nreset: O, busy: I, spi: SPI, nss: O) -> Self {
         Self { nreset, busy, spi, nss, buffer: CmdBuffer::new()}
     }
@@ -244,7 +251,7 @@ impl<I,O,SPI> Lr1120<O,SPI, BusyBlocking<I>> where
 impl<I,O,SPI> Lr1120<O,SPI, BusyAsync<I>> where
     I: InputPin + Wait, O: OutputPin, SPI: SpiBus<u8>
 {
-    /// Create a LR1020 Device with async busy pin
+    /// Create a LR1120 Device with async busy pin
     pub fn new(nreset: O, busy: I, spi: SPI, nss: O) -> Self {
         Self { nreset, busy, spi, nss, buffer: CmdBuffer::new()}
     }
@@ -283,7 +290,7 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
         self.buffer.data_mut()
     }
 
-    /// Wait for LR1020 to be ready for a command, i.e. busy pin low
+    /// Wait for LR1120 to be ready for a command, i.e. busy pin low
     pub async fn wait_ready(&mut self, timeout: Duration) -> Result<(), Lr1120Error> {
         M::wait_ready(&mut self.busy, timeout).await
     }
@@ -348,23 +355,19 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
         self.nss.set_high().map_err(|_| Lr1120Error::Pin)
     }
 
-    /// Write a command with variable length payload, and save result in local buffer
-    pub async fn cmd_data_rw_l(&mut self, opcode: &[u8], rsp_len: usize) -> Result<(), Lr1120Error> {
-        self.cmd_wr_begin(opcode).await?;
-        self.rsp_rd(rsp_len).await
-    }
-
     /// Read response from SPI into local buffer
     pub async fn rsp_rd(&mut self, rsp_len: usize) -> Result<(), Lr1120Error> {
         self.buffer.nop();
+        // Add extra byte on the respnse length to take into acocunt the first status byte ?
         self.spi
-            .transfer_in_place(&mut self.buffer.data_mut()[..rsp_len]).await
+            .transfer_in_place(&mut self.buffer.as_mut()[..rsp_len+1]).await
             .map_err(|_| Lr1120Error::Spi)?;
         self.nss.set_high().map_err(|_| Lr1120Error::Pin)?;
         self.buffer.cmd_status().check()
     }
 
-    /// Read response from SPI into local buffer
+    /// Read response from SPI into provided buffer
+    /// First two bytes must be initialized to 0
     pub async fn rsp_rd_to(&mut self, rsp:  &mut [u8]) -> Result<(), Lr1120Error> {
         self.spi
             .transfer_in_place(rsp).await
@@ -381,7 +384,7 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
         self.wait_ready(Duration::from_millis(100)).await?;
         self.nss.set_low().map_err(|_| Lr1120Error::Pin)?;
         self.spi
-            .transfer_in_place(&mut self.buffer.data_mut()[..len]).await
+            .transfer_in_place(&mut self.buffer.as_mut()[..len]).await
             .map_err(|_| Lr1120Error::Spi)?;
         self.nss.set_high().map_err(|_| Lr1120Error::Pin)?;
         self.buffer.cmd_status().check()

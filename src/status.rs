@@ -10,9 +10,9 @@
 //! Note that when the command is only one byte, only the previous command status
 //!  and interrupt pending are updated.
 //!
-//! The interrupt structure `Intr` allows to both configrue which interrupt should be assigned to a pin
-//! with the command [`set_dio_irq`](Lr1120::set_dio_irq) and easily get which interrupt is currently raised
-//! after a [`get_status`](Lr1120::get_status).
+//! The interrupt structure `Intr` allows to both configure which interrupt should be assigned to a pin
+//! with the command [`set_dio_irq`](crate::Lr1120::set_dio_irq) and easily get which interrupt is currently raised
+//! after a [`get_status`](crate::Lr1120::get_status).
 
 use super::Lr1120Error;
 

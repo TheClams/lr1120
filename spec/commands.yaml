@@ -61,64 +61,12 @@ categories:
           bit_width: 8
           byte_positions: [[2,'7:0']]
           description: 'Source Key identifier: Nwk, App or GpKe*'
-          enum:
-            Nwk: 2
-            App: 3
-            JsEnc: 4
-            JsInt: 5
-            GpKe0: 6
-            GpKe1: 7
-            GpKe2: 8
-            GpKe3: 9
-            GpKe4: 10
-            GpKe5: 11
-            AppS: 12
-            FNwkSInt: 13
-            SNwkSInt: 14
-            NwkSEnc: 15
-            Rfu0: 16
-            Rfu1: 17
-            McAppSKey0: 18
-            McAppSKey1: 19
-            McAppSKey2: 20
-            McAppSKey3: 21
-            McNwkSKey0: 22
-            McNwkSKey1: 23
-            McNwkSKey2: 24
-            McNwkSKey3: 25
-            Gp0: 26
-            Gp1: 27
+          enum: ['']
         - name: dst_key_id
           bit_width: 8
           byte_positions: [[3,'7:0']]
           description: 'Destination Key identifier'
-          enum:
-            Nwk: 2
-            App: 3
-            JsEnc: 4
-            JsInt: 5
-            GpKe0: 6
-            GpKe1: 7
-            GpKe2: 8
-            GpKe3: 9
-            GpKe4: 10
-            GpKe5: 11
-            AppS: 12
-            FNwkSInt: 13
-            SNwkSInt: 14
-            NwkSEnc: 15
-            Rfu0: 16
-            Rfu1: 17
-            McAppSKey0: 18
-            McAppSKey1: 19
-            McAppSKey2: 20
-            McAppSKey3: 21
-            McNwkSKey0: 22
-            McNwkSKey1: 23
-            McNwkSKey2: 24
-            McNwkSKey3: 25
-            Gp0: 26
-            Gp1: 27
+          enum: ['']
         - name: input
           bit_width: 128
           byte_positions: [[4,"7:0"],[5,"7:0"],[6,"7:0"],[7,"7:0"],[8,"7:0"],[9,"7:0"],[10,"7:0"],[11,"7:0"],[12,"7:0"],[13,"7:0"],[14,"7:0"],[15,"7:0"],[16,"7:0"],[17,"7:0"],[18,"7:0"],[19,"7:0"]]
@@ -719,49 +667,55 @@ categories:
           then BeiDou after delay (4s fixed for FW ≤01.02, variable 1s steps for FW 02.01+). Requires 32.768kHz clock for
           dual constellation. BUSY high until both scans complete.
         parameters:
-        - name: constellation_bit_mask
-          bit_width: 8
-          byte_positions:
-          - - 2
-            - '7:0'
-          description: 'Bit 0=1: GPS selected, Bit 1=1: BeiDou selected, other: RFU'
+        - name: gps_en
+          bit_width: 1
+          byte_positions: [[2, '0']]
+          description: 'Enable GPS constellation'
+        - name: beidou_en
+          bit_width: 1
+          byte_positions: [[2, '1']]
+          description: 'Enable BeiDou constellation'
       GnssReadConstellationToUse:
         opcode: 1025
         description: Reads selected constellation (GPS/BeiDou)
         parameters: []
         status_fields:
-        - name: constellation_bit_mask
-          bit_width: 8
-          byte_positions:
-          - - 1
-            - '7:0'
-          description: 'Bit 0=1: GPS, Bit 1=1: BeiDou, other: RFU'
+        - name: gps_en
+          bit_width: 1
+          byte_positions: [[1, '0']]
+          description: 'GPS constellation Enabled'
+        - name: beidou_en
+          bit_width: 1
+          byte_positions: [[1, '1']]
+          description: 'BeiDou constellation Enabled'
       GnssReadSupportedConstellations:
         opcode: 1031
         description: Reads supported constellations
         parameters: []
         status_fields:
-        - name: constellation_bit_mask
-          bit_width: 8
-          byte_positions:
-          - - 1
-            - '7:0'
-          description: 'Bit 0=1: GPS supported, Bit 1=1: BeiDou supported, other: RFU'
+        - name: gps_en
+          bit_width: 1
+          byte_positions: [[1, '0']]
+          description: 'GPS constellation supported'
+        - name: beidou_en
+          bit_width: 1
+          byte_positions: [[1, '1']]
+          description: 'BeiDou constellation supported'
       GnssSetMode:
         opcode: 1032
         description: Configures GNSS for Legacy (single) or Advanced (multiple) scanning. Advanced performs multiple captures
           and averages them for increased precision, at expense of longer duration and higher energy. FW 02.01+ NAV message
           format differs from earlier versions.
         parameters:
-        - name: gnss_mode
+        - name: gnss_scan_mode
           bit_width: 8
           byte_positions:
           - - 2
             - '7:0'
           description: '0x00: Legacy (single) scanning, 0x03: Advanced (multiple) scanning, other: RFU'
           enum:
-            LEGACY_SINGLE: 0
-            ADVANCED_MULTIPLE: 3
+            SINGLE: 0
+            MULTI: 3
       GnssAutonomous:
         opcode: 1033
         description: Captures GNSS signals in autonomous mode (no assistance info available). NOT supported in FW 02.01+,
@@ -780,29 +734,26 @@ categories:
             - '7:0'
           description: GPS time (GPST) in seconds since 6 Jan 1980 00:00:00. When converting from UTC, account for leap second
             offset.
-        - name: effort_mode
-          bit_width: 8
-          byte_positions:
-          - - 6
-            - '7:0'
-          description: '0x00: Low Power (stop if no strong satellite), other: RFU'
-          enum:
-            LOW_POWER: 0
-            BEST_EFFORT: 1
-        - name: result_mask
-          bit_width: 8
-          byte_positions:
-          - - 7
-            - '7:0'
-          description: 'Bit 0: Include pseudo-ranges (GnssMode=0) or Doppler (GnssMode=1). Bit 1: Include Doppler info (min
-            5 or 7 satellites reported). Bit 2: Include bit changes (1 byte/satellite, not used by solver)'
+        - name: best_effort
+          bit_width: 1
+          byte_positions: [[6, '0']]
+          description: Set to continue even if no strong satellite was found
+        - name: pseudo_range_en
+          bit_width: 1
+          byte_positions: [[7, '0']]
+          description: 'Result will include pseudo-ranges'
+        - name: doppler_info_en
+          bit_width: 1
+          byte_positions: [[7, '1']]
+          description: 'Result will include Doppler info'
+        - name: bit_changes_en
+          bit_width: 1
+          byte_positions: [[7, '2']]
+          description: 'Result will include bit changes (1 byte/satellite, not used by solver)'
         - name: nb_sv_max
           bit_width: 8
-          byte_positions:
-          - - 8
-            - '7:0'
-          description: 'Max satellites to return. If 0: return all detected. If >0: return NbSvMax with highest C/N0. Values
-            1 and 2 not accepted.'
+          byte_positions: [[8, '7:0']]
+          description: 'Max satellites to return. If 0: return all detected. If >0: return NbSvMax with highest C/N0. Values 1 and 2 not accepted.'
       GnssAssisted:
         opcode: 1034
         description: Captures GNSS signals using assistance data (time, position, almanac). NOT supported in FW 02.01+, replaced
@@ -820,27 +771,26 @@ categories:
           - - 5
             - '7:0'
           description: GPS time (GPST) in seconds since 6 Jan 1980 00:00:00
-        - name: effort_mode
-          bit_width: 8
-          byte_positions:
-          - - 6
-            - '7:0'
-          description: '0x00: Low Power (stop if no strong satellite detected), 0x01: Best Effort (continue even if no strong satellite)'
-          enum:
-            LOW_POWER: 0
-            BEST_EFFORT: 1
-        - name: result_mask
-          bit_width: 8
-          byte_positions:
-          - - 7
-            - '7:0'
-          description: See GnssAutonomous result_mask
+        - name: best_effort
+          bit_width: 1
+          byte_positions: [[6, '0']]
+          description: Set to continue even if no strong satellite was found
+        - name: pseudo_range_en
+          bit_width: 1
+          byte_positions: [[7, '0']]
+          description: 'Result will include pseudo-ranges'
+        - name: doppler_info_en
+          bit_width: 1
+          byte_positions: [[7, '1']]
+          description: 'Result will include Doppler info'
+        - name: bit_changes_en
+          bit_width: 1
+          byte_positions: [[7, '2']]
+          description: 'Result will include bit changes (1 byte/satellite, not used by solver)'
         - name: nb_sv_max
           bit_width: 8
-          byte_positions:
-          - - 8
-            - '7:0'
-          description: See GnssAutonomous nb_sv_max
+          byte_positions: [[8, '7:0']]
+          description: 'Max satellites to return. If 0: return all detected. If >0: return NbSvMax with highest C/N0. Values 1 and 2 not accepted.'
       GnssScan:
         opcode: 1035
         description: 'Captures GNSS signals independent of assistance data availability. FW 02.01+ only. Two types: Cold start
@@ -848,29 +798,26 @@ categories:
           satellites). Use sleep with retention to preserve assistance data. Can be aborted by sending 0x0 on SPI while BUSY
           active (max 2.9s abort delay).'
         parameters:
-        - name: effort_mode
-          bit_width: 8
-          byte_positions:
-          - - 2
-            - '7:0'
-          description: '0x00: Low Power (duration/sensitivity depends on assistance data), 0x01: Best Effort (Legacy mode
-            requires assistance data or returns error, Advanced depends on assistance), 0x02: RFU'
-          enum:
-            LOW_POWER: 0
-            BEST_EFFORT: 1
-        - name: result_mask
-          bit_width: 8
-          byte_positions:
-          - - 3
-            - '7:0'
-          description: See ResultMask field definition table. Controls pseudo-ranges, Doppler info, bit changes in NAV message
+        - name: best_effort
+          bit_width: 1
+          byte_positions: [[2, '0']]
+          description: Set to continue even if no strong satellite was found
+        - name: pseudo_range_en
+          bit_width: 1
+          byte_positions: [[3, '0']]
+          description: 'Result will include pseudo-ranges'
+        - name: doppler_info_en
+          bit_width: 1
+          byte_positions: [[3, '1']]
+          description: 'Result will include Doppler info'
+        - name: bit_changes_en
+          bit_width: 1
+          byte_positions: [[3, '2']]
+          description: 'Result will include bit changes (1 byte/satellite, not used by solver)'
         - name: nb_sv_max
           bit_width: 8
-          byte_positions:
-          - - 4
-            - '7:0'
-          description: 'Max satellites to detect. If 0: all detected. Otherwise: NbSvMax with higher C/N0. Values 1 and 2
-            not accepted.'
+          byte_positions: [[4, '7:0']]
+          description: 'Max satellites to return. If 0: return all detected. If >0: return NbSvMax with highest C/N0. Values 1 and 2 not accepted.'
       GnssSetAssistancePosition:
         opcode: 1040
         description: Configures approximate position for GNSS assisted mode. FW 02.01+ uses integrated 2D solving to determine
@@ -917,8 +864,7 @@ categories:
           description: 'Longitude (12-bit effective). Convert: longitude_degrees = Longitude * 180/2048'
       GnssGetContextStatus:
         opcode: 1046
-        description: Reads GNSS context status including firmware version, almanac CRC, error codes, and frequency search
-          space
+        description: Reads GNSS context status including firmware version, almanac CRC, error codes, and frequency search space
         parameters: []
         status_fields:
         - name: gnss_fw_version
@@ -939,27 +885,33 @@ categories:
           - - 7
             - '7:0'
           description: 32-bit CRC on all flash memory (128 satellites, 21 bytes each)
-        - name: error_code
+        - name: context_error
           bit_width: 4
-          byte_positions:
-          - - 8
-            - '7:4'
-          description: '0: No error, 1: Almanac too old, 2: Last almanac update CRC mismatch, 3: Flash integrity error, 4:
-            Almanac update not allowed (GPS and BeiDou can''t update in same request), 5-15: RFU'
-        - name: almanac_update_bit_mask
-          bit_width: 3
-          byte_positions:
-          - - 8
-            - '3:1'
-          description: 'Bit 0: GPS, Bit 1: BeiDou, Bit 2: RFU'
+          byte_positions: [[8, '7:4']]
+          description: 'Source of error, if any'
+          enum:
+            NONE: 0
+            ALMANAC_OLD: 1
+            ALMANAC_CRC: 2
+            FLASH_INTEGRITY: 3
+            ALMANAC_LOCKED: 4
+        - name: gps_en
+          bit_width: 1
+          byte_positions: [[8,'1']]
+          description: 'GPS almanac update'
+        - name: beidou_en
+          bit_width: 1
+          byte_positions: [[8,'2']]
+          description: 'BeiDou almanac update'
         - name: freq_search_space
           bit_width: 2
-          byte_positions:
-          - - 8
-            - '0'
-          - - 9
-            - '7'
-          description: '0: 250Hz, 1: 500Hz, 2: 1kHz, 3: 2kHz'
+          byte_positions: [[8, '0'],[9, '7']]
+          description: 'Frequency search space in Heartz'
+          enum:
+            F250: 0
+            F500: 1
+            F1000: 2
+            F2000: 3
       GnssReadVersion:
         opcode: 1030
         description: Returns internal GNSS firmware version and almanac version
@@ -981,23 +933,27 @@ categories:
         opcode: 1026
         description: Configures constellation almanac information to be updated. By default both constellations activated.
         parameters:
-        - name: almanac_update_bit_mask
-          bit_width: 8
-          byte_positions:
-          - - 2
-            - '7:0'
-          description: 'Bit 0: GPS, Bit 1: BeiDou, Bit 2: RFU'
+        - name: gps_en
+          bit_width: 1
+          byte_positions: [[8,'1']]
+          description: 'GPS almanac update'
+        - name: beidou_en
+          bit_width: 1
+          byte_positions: [[8,'2']]
+          description: 'BeiDou almanac update'
       GnssReadAlmanacUpdate:
         opcode: 1027
         description: Reads almanac update information
         parameters: []
         status_fields:
-        - name: almanac_update_bit_mask
-          bit_width: 8
-          byte_positions:
-          - - 1
-            - '7:0'
-          description: 'Bit 0: GPS, Bit 1: BeiDou, Bit 2: RFU'
+        - name: gps_en
+          bit_width: 1
+          byte_positions: [[1,'1']]
+          description: 'GPS almanac update'
+        - name: beidou_en
+          bit_width: 1
+          byte_positions: [[1,'2']]
+          description: 'BeiDou almanac update'
       GnssGetResultSize:
         opcode: 1036
         description: Reads size in bytes of byte stream containing available GNSS results. Must call before GnssReadResults.
@@ -1005,38 +961,34 @@ categories:
         status_fields:
         - name: result_size
           bit_width: 16
-          byte_positions:
-          - - 1
-            - '7:0'
-          - - 2
-            - '7:0'
+          byte_positions: [[1, '7:0'], [2, '7:0']]
           description: Size of GNSS results in bytes
       GnssReadResults:
         opcode: 1037
         description: 'Retrieves last GNSS results. Variable length message: DestinationID (1 byte) + Payload. DestinationID:
           0x00=Status to Host, 0x01=NAV to GNSS Solver, 0x02=Almanac update to DM service. Must call GnssGetResultSize first.'
         parameters: []
-        status_fields:
-        - name: results
-          bit_width: 0
-          byte_positions: []
-          description: Variable length results byte stream. Format depends on DestinationID and scan mode.
+        # status_fields:
+        # - name: results
+        #   bit_width: 0
+        #   byte_positions: []
+        #   description: Variable length results byte stream. Format depends on DestinationID and scan mode.
       GnssPushSolverMsg:
         opcode: 1044
         description: Pushes messages from GNSS solver to LR1120 (e.g., assistance position update)
-        parameters:
-        - name: payload
-          bit_width: 0
-          byte_positions: []
-          description: Byte stream to forward from solver to LR1120
+        parameters: []
+        # - name: payload
+        #   bit_width: 0
+        #   byte_positions: []
+        #   description: Byte stream to forward from solver to LR1120
       GnssPushDmMsg:
         opcode: 1045
         description: Pushes messages from LoRaWAN network to LR1120. FW 02.01+ only.
-        parameters:
-        - name: payload
-          bit_width: 0
-          byte_positions: []
-          description: Byte stream to forward from network to LR1120
+        parameters: []
+        # - name: payload
+        #   bit_width: 0
+        #   byte_positions: []
+        #   description: Byte stream to forward from network to LR1120
       GnssGetNbSvDetected:
         opcode: 1047
         description: Returns number of Satellite Vehicles detected during last GNSS scan
@@ -1054,11 +1006,19 @@ categories:
           to convert to C/N0.
         parameters: []
         status_fields:
-        - name: sv_data
-          bit_width: 0
-          byte_positions: []
-          description: 'Variable length array of satellite data. Per satellite: SvId (1 byte), SNR (1 byte in dB), Doppler
-            (signed 16-bit)'
+        - name: sv_id
+          bit_width: 8
+          byte_positions: [[0, '7:0']]
+          description: 'Identifier'
+        - name: snr
+          bit_width: 8
+          byte_positions: [[1, '7:0']]
+          description: 'SNR in dB'
+        - name: doppler
+          bit_width: 16
+          byte_positions: [[2, '7:0'],[3, '7:0']]
+          signed: true
+          description: 'Doppler estimation'
       GnssGetConsumption:
         opcode: 1049
         description: Reads duration of Radio capture and CPU processing phases of GNSS scan in microseconds. Used to determine
@@ -1067,27 +1027,11 @@ categories:
         status_fields:
         - name: radio_ms
           bit_width: 32
-          byte_positions:
-          - - 1
-            - '7:0'
-          - - 2
-            - '7:0'
-          - - 3
-            - '7:0'
-          - - 4
-            - '7:0'
+          byte_positions: [[1, '7:0'],[2, '7:0'],[3, '7:0'], [4, '7:0']]
           description: Radio capture duration in microseconds
         - name: computation_ms
           bit_width: 32
-          byte_positions:
-          - - 5
-            - '7:0'
-          - - 6
-            - '7:0'
-          - - 7
-            - '7:0'
-          - - 8
-            - '7:0'
+          byte_positions: [[5, '7:0'],[6, '7:0'],[7, '7:0'], [8, '7:0']]
           description: CPU processing duration in microseconds
       GnssGetSvVisible:
         opcode: 1055
@@ -1095,38 +1039,24 @@ categories:
         parameters:
         - name: time
           bit_width: 32
-          byte_positions:
-          - - 2
-            - '7:0'
-          - - 3
-            - '7:0'
-          - - 4
-            - '7:0'
-          - - 5
-            - '7:0'
+          byte_positions: [[2, '7:0'],[3, '7:0'], [4, '7:0'], [5, '7:0']]
           description: GPS time in seconds since 6 Jan 1980 00:00:00
         - name: latitude
           bit_width: 16
-          byte_positions:
-          - - 6
-            - '7:0'
-          - - 7
-            - '7:0'
+          byte_positions: [[6, '7:0'],[7, '7:0']]
           description: Latitude (see GnssSetAssistancePosition for encoding)
         - name: longitude
           bit_width: 16
-          byte_positions:
-          - - 8
-            - '7:0'
-          - - 9
-            - '7:0'
+          byte_positions: [[8, '7:0'],[9, '7:0']]
           description: Longitude (see GnssSetAssistancePosition for encoding)
-        - name: constellation
-          bit_width: 8
-          byte_positions:
-          - - 10
-            - '7:0'
-          description: Constellation bit mask
+        - name: gps_en
+          bit_width: 1
+          byte_positions: [[10, '0']]
+          description: 'Enable GPS constellation'
+        - name: beidou_en
+          bit_width: 1
+          byte_positions: [[10, '1']]
+          description: 'Enable BeiDou constellation'
         status_fields:
         - name: nb_sv_visible
           bit_width: 8
@@ -1154,7 +1084,7 @@ categories:
         description: Returns type of scan launched during last scan. FW 02.01+ only.
         parameters: []
         status_fields:
-        - name: last_scan_mode
+        - name: gnss_scan_type
           bit_width: 8
           byte_positions:
           - - 1
@@ -1162,25 +1092,33 @@ categories:
           description: '0-2: RFU, 3: Assisted (time+position known), 4: Cold start (unknown), 5: Cold start (time known),
             6: Fetch time/integrated 2D, 7: Almanac update no flash, 8: Keep sync, 9: Almanac update 1 constellation flashed,
             10: Almanac update 2 constellations flashed'
+          enum:
+            ASSISTED: 3
+            COLD_START: 4
+            TIME_KNOWN: 5
+            FETCH_TIME: 6
+            ALMANAC_UPDT0: 7
+            KEEP_SYNC: 8
+            ALMANAC_UPDT1: 9
+            ALMANAC_UPDT2: 10
       GnssFetchTime:
         opcode: 1074
         description: Configures LR1120 to determine time by demodulating satellite signals. FW 02.01+ only. Can be aborted.
         parameters:
-        - name: demod_sensi
-          bit_width: 8
-          byte_positions:
-          - - 2
-            - '7:0'
-          description: 'Demodulation sensitivity: 0: Low (GPS -134dBm, BeiDou -130dBm), 1: Mid (GPS -137dBm, BeiDou -134dBm)'
-          enum:
-            LOW: 0
-            MID: 1
-        - name: options
+        - name: best_effort
+          bit_width: 1
+          byte_positions: [[2, '0']]
+          description: When set target sensitivity of -137dBm for GPS and, -134 for BeiDou -134dBm.
+        - name: fetch_time_mode
           bit_width: 8
           byte_positions:
           - - 3
             - '7:0'
-          description: '0: Search for Time Of Week (TOW) in any subframe/constellation (requires Week Number already demodulated)'
+          description: TOW_ONLY should only be used once the Week Number is known. ROLLOVER is for beidou constellation only.
+          enum:
+            TOW_ONLY: 0
+            TOW_WN: 1
+            ROLLOVER: 2
       GnssReadTime:
         opcode: 1076
         description: Returns GPS time. FW 02.01+ only.
@@ -1198,7 +1136,7 @@ categories:
           - - 4
             - '7:0'
           description: GPS time in seconds since 6 Jan 1980 00:00:00
-        - name: time_accuracy
+        - name: accuracy
           bit_width: 32
           byte_positions:
           - - 5
@@ -1248,13 +1186,22 @@ categories:
           updated by GnssComputeAssistancePosition. All 18 bytes must be read. FW 02.01+ only.
         parameters: []
         status_fields:
-        - name: error_code
+        - name: solver_error
           bit_width: 8
           byte_positions:
           - - 1
             - '7:0'
-          description: '0: NoError, 1: ResidueHigh, 2: NotConverged, 3: NotEnoughSv, 4: IllMatrix, 5: Time error, 6: PartialAlmanacTooOld,
-            7: NotConsistentWithHistory, 8: AllAlmanacTooOld. If not NoError, latitude=0xFFFF, longitude=0xFFFF'
+          description: Failure reason
+          enum:
+            None: 0
+            RESIDUE_HIGH: 1
+            NOT_CONVERGED: 2
+            NOT_ENOUGH_SV: 3
+            ILLEGAL_MATRIX: 4
+            TIME_ERROR: 5
+            PARTIAL_ALAMANAC_OLD: 6
+            INCONSISTENT: 7
+            FULL_ALAMANAC_OLD: 8
         - name: nb_sv_used
           bit_width: 8
           byte_positions:
@@ -1340,6 +1287,252 @@ categories:
           - - 3
             - '7:0'
           description: Delay in seconds
+      GnssReadWNRollover:
+        opcode: 0x0467
+        description: "Reads number of GPS time Week Number rollover (every 1024 weeks). In 2023, value is 2. Can be changed by GnssSetTime, GnssFetchTime, or GnssScan. FW 02.01+ only."
+        parameters: []
+        status_fields:
+          - name: wn_source
+            bit_width: 8
+            byte_positions: [[1, "7:0"]]
+            description: Source of week number. Can be not set, set by GnssScan, or from GnssSetTime/GnssFetchTime.
+            enum:
+              NOT_SET: 0
+              SCAN: 1
+              TIME: 2
+          - name: wn_rollover
+            bit_width: 8
+            byte_positions: [[2, "7:0"]]
+            description: "Current GPS Week Number rollover value"
+      GnssReadWarmStartStatus:
+        opcode: 0x0469
+        description: "Reads number of visible satellites and time elapsed since last update of detected satellite list for this constellation. FW 02.01+ only."
+        parameters:
+          - name: gps_en
+            bit_width: 1
+            byte_positions: [[2, '0']]
+            description: 'Enable GPS constellation'
+          - name: beidou_en
+            bit_width: 1
+            byte_positions: [[2, '1']]
+            description: 'Enable BeiDou constellation'
+        status_fields:
+          - name: nb_sv
+            bit_width: 8
+            byte_positions: [[1, "7:0"]]
+            description: "Number of visible satellites in selected constellation. If 0: no satellites found or all unhealthy/deactivated"
+          - name: time_elapsed
+            bit_width: 32
+            byte_positions: [[2, "7:0"], [3, "7:0"], [4, "7:0"], [5, "7:0"]]
+            description: "Seconds since last update of satellite list. If 0xFFFFFFFF: time never set in LR1120"
+      GnssGetSvWarmStart:
+        opcode: 0x0466
+        description: "Returns list of satellites for next keep sync scan. Must call GnssReadWarmStartStatus first to know how many satellites in list. FW 02.01+ only."
+        parameters:
+          - name: gps_en
+            bit_width: 1
+            byte_positions: [[2, '0']]
+            description: 'Enable GPS constellation'
+          - name: beidou_en
+            bit_width: 1
+            byte_positions: [[2, '1']]
+            description: 'Enable BeiDou constellation'
+        status_fields:
+          - name: sv_list
+            bit_width: 0
+            byte_positions: []
+            description: "Variable length satellite ID list. All bytes must be read. Number of satellites determined by GnssReadWarmStartStatus."
+      GnssWriteBitMaskSatActivated:
+        opcode: 0x0472
+        description: "Configures LR1120 to search for Almanacs for each satellite. For GPS: 32-bit mask for satellites 1-32. For BeiDou: two 32-bit masks for satellites 1-32 and 33-63. FW 02.01+ only."
+        parameters:
+          - name: gps_en
+            bit_width: 1
+            byte_positions: [[2, '0']]
+            description: 'Enable GPS constellation'
+          - name: beidou_en
+            bit_width: 1
+            byte_positions: [[2, '1']]
+            description: 'Enable BeiDou constellation'
+          - name: bit_mask_activated_0
+            bit_width: 32
+            byte_positions: [[3, "7:0"], [4, "7:0"], [5, "7:0"], [6, "7:0"]]
+            description: "GPS: satellites 1-32 (default 0xFFFFFFFF). BeiDou: satellites 1-32 (default 0xBFFCBFFF)"
+          - name: bit_mask_activated_1
+            bit_width: 32
+            byte_positions: [[7, "7:0"], [8, "7:0"], [9, "7:0"], [10, "7:0"]]
+            description: "BeiDou only: satellites 33-63 (default 0xC0007FF). Not sent for GPS."
+            optional: true
+      GnssAlmanacUpdateFromSat:
+        opcode: 0x0455
+        description: "Launches GNSS scan to download Almanac parameters from satellite signal (subframe 4/5) for one constellation. Must be sent at precise time matching Almanac data availability - use GnssReadAlmanacStatus. Default: Almanac in RAM, written to flash when >6 satellites available or >half almanacs to update available. Can be aborted. FW 02.01+ only."
+        parameters:
+          - name: best_effort
+            bit_width: 1
+            byte_positions: [[2, '0']]
+            description: When set target sensitivity of -137dBm for GPS and, -134 for BeiDou -134dBm.
+          - name: gps_en
+            bit_width: 1
+            byte_positions: [[3, '0']]
+            description: 'Enable GPS constellation'
+          - name: beidou_en
+            bit_width: 1
+            byte_positions: [[3, '1']]
+            description: 'Enable BeiDou constellation'
+      GnssReadAlmanacStatus:
+        opcode: 0x0457
+        description: "Returns detailed almanac update status for both GPS and BeiDou constellations including which satellites need update, next subframe timing, and activation status. Updated when SV almanac demodulated and stored in retention memory or flash. All 53 bytes must be read. FW 02.01+ only."
+        parameters: []
+        status_fields:
+          - name: gps_status
+            bit_width: 8
+            byte_positions: [[1, "7:0"]]
+            description: "GPS almanac status"
+            enum:
+              LOW_ACCURACY: 252
+              NO_TIME_SET: 253
+              NEXT_TIME_UNKNOWN: 254
+              PAGE_ID_UNKNOWN: 255
+              NOTHING_TODO: 0
+              SUCCESS: 1
+          - name: gps_time_to_next_subframe
+            bit_width: 32
+            byte_positions: [[2, "7:0"], [3, "7:0"], [4, "7:0"], [5, "7:0"]]
+            description: "Milliseconds before next GPS satellite data subframe for new GPS Almanac"
+          - name: gps_next_subframes_to_demod
+            bit_width: 8
+            byte_positions: [[6, "7:0"]]
+            description: "Next number of GPS subframes to demodulate"
+          - name: gps_sv_in_subframe_4
+            bit_width: 8
+            byte_positions: [[7, "7:0"]]
+            description: "GPS satellite number that can be demodulated in next subframe 4"
+          - name: gps_sv_in_subframe_5
+            bit_width: 8
+            byte_positions: [[8, "7:0"]]
+            description: "GPS satellite number that can be demodulated in next subframe 5"
+          - name: gps_next_subframe_id
+            bit_width: 8
+            byte_positions: [[9, "7:0"]]
+            description: "Next GPS subframe ID start: 4 or 5 (if first almanac in that subframe), 0 (if no next almanac to demodulate)"
+          - name: gps_total_sv_to_update
+            bit_width: 8
+            byte_positions: [[10, "7:0"]]
+            description: "Total number of GPS satellites requiring Almanac update. Default at device start: 32 (full update needed)"
+          - name: gps_sv_almanac_to_update_mask
+            bit_width: 32
+            byte_positions: [[11, "7:0"], [12, "7:0"], [13, "7:0"], [14, "7:0"]]
+            description: "Bit mask for GPS satellites 1-32 needing almanac update. Bit 0=SV1, Bit 31=SV32. 0: already updated, 1: needs update"
+          - name: gps_sv_activated_mask
+            bit_width: 32
+            byte_positions: [[15, "7:0"], [16, "7:0"], [17, "7:0"], [18, "7:0"]]
+            description: "Bit mask for GPS satellites 1-32 activation. Bit 0=SV1, Bit 31=SV32. 0: not activated, 1: activated"
+          - name: beidou_status
+            bit_width: 8
+            byte_positions: [[19, "7:0"]]
+            description: "BeiDou almanac status"
+            enum:
+              LOW_ACCURACY: 252
+              NO_TIME_SET: 253
+              NEXT_TIME_UNKNOWN: 254
+              PAGE_ID_UNKNOWN: 255
+              NOTHING_TODO: 0
+              SUCCESS: 1
+          - name: beidou_time_to_next_subframe
+            bit_width: 32
+            byte_positions: [[20, "7:0"], [21, "7:0"], [22, "7:0"], [23, "7:0"]]
+            description: "Milliseconds before next BeiDou satellite data subframe for new BeiDou Almanac"
+          - name: beidou_next_subframes_to_demod
+            bit_width: 8
+            byte_positions: [[24, "7:0"]]
+            description: "Next number of BeiDou subframes to demodulate"
+          - name: beidou_sv_in_subframe_4
+            bit_width: 8
+            byte_positions: [[25, "7:0"]]
+            description: "BeiDou satellite number that can be demodulated in next subframe 4"
+          - name: beidou_sv_in_subframe_5
+            bit_width: 8
+            byte_positions: [[26, "7:0"]]
+            description: "BeiDou satellite number that can be demodulated in next subframe 5"
+          - name: beidou_next_subframe_id
+            bit_width: 8
+            byte_positions: [[27, "7:0"]]
+            description: "Next BeiDou subframe ID start: 4 or 5 (if first almanac in that subframe), 0 (if no next almanac to demodulate)"
+          - name: beidou_total_sv_to_update
+            bit_width: 8
+            byte_positions: [[28, "7:0"]]
+            description: "Total number of BeiDou satellites requiring Almanac update. Default at device start: 34 (full update needed)"
+          - name: beidou_sv_almanac_to_update_mask
+            bit_width: 64
+            byte_positions: [[29, "7:0"], [30, "7:0"], [31, "7:0"], [32, "7:0"],[33, "7:0"], [34, "7:0"], [35, "7:0"], [36, "7:0"]]
+            description: "Bit mask for BeiDou satellites needing almanac update."
+          - name: beidou_sv_activated_mask
+            bit_width: 64
+            byte_positions: [[37, "7:0"], [38, "7:0"], [39, "7:0"], [40, "7:0"], [41, "7:0"], [42, "7:0"], [43, "7:0"], [44, "7:0"]]
+            description: "Bit mask for BeiDou satellites activated."
+          - name: beidou_sv_blacklist_mask
+            bit_width: 64
+            byte_positions: [[45, "7:0"], [46, "7:0"], [47, "7:0"], [48, "7:0"],[49, "7:0"], [50, "7:0"], [51, "7:0"], [52, "7:0"]]
+            description: "Bit mask for BeiDou satellites blacklisted."
+          - name: beidou_next_almanac_id
+            bit_width: 8
+            byte_positions: [[53, "7:0"]]
+            description: "Pages 11-24 of subframe 5 broadcast almanacs of SVs 31-63 in 4 NAV messages (12 min each). 0: No almanac on pages 11-24, 1: SVs 31-43, 2: SVs 44-56, 3: SVs 57-63. LR1120 only downloads SVs 31-43."
+      GnssConfigAlmanacUpdatePeriod:
+        opcode: 0x0463
+        description: "Configures Almanac update period (days) after which application notified via GnssReadAlmanacStatus. Age compared with Period. Defaults: GPS 31 days, BeiDou MEO 60 days, BeiDou IGSO 30 days. FW 02.01+ only."
+        parameters:
+          - name: gps_en
+            bit_width: 1
+            byte_positions: [[2, '0']]
+            description: 'Enable GPS constellation'
+          - name: beidou_en
+            bit_width: 1
+            byte_positions: [[2, '1']]
+            description: 'Enable BeiDou constellation'
+          - name: beidou_type
+            bit_width: 8
+            byte_positions: [[3, "7:0"]]
+            description: "0: MEO satellite, 1: IGSO satellite. No impact on GPS but must be ≤1"
+            enum:
+              MEO: 0
+              IGSO: 1
+          - name: period
+            bit_width: 16
+            byte_positions: [[4, "7:0"], [5, "7:0"]]
+            description: "Update period in days before almanac download needed"
+      GnssReadAlmanacUpdatePeriod:
+        opcode: 0x0464
+        description: "Reads Almanac update period for constellation and SV type. FW 02.01+ only."
+        parameters:
+          - name: gps_en
+            bit_width: 1
+            byte_positions: [[2, '0']]
+            description: 'Enable GPS constellation'
+          - name: beidou_en
+            bit_width: 1
+            byte_positions: [[2, '1']]
+            description: 'Enable BeiDou constellation'
+          - name: beidou_type
+            bit_width: 8
+            byte_positions: [[3, "7:0"]]
+            description: "0: MEO satellite, 1: IGSO satellite"
+            enum:
+              MEO: 0
+              IGSO: 1
+        status_fields:
+          - name: period
+            bit_width: 16
+            byte_positions: [[1, "7:0"], [2, "7:0"]]
+            description: "Period in days before almanac update needed"
+      GnssAlmanacFullUpdate:
+        opcode: 0x040E
+        description: "Updates all Almanac data for all satellites. Each constellation updated separately. Total 2580 bytes: 20-byte header + 128 satellites * 20 bytes. Max 512 bytes per SPI transaction - requires multiple transactions. Two approaches: (1) 129 transactions of 20 bytes each (min memory), (2) 5 transactions of 500 bytes + 1 of 80 bytes (min transactions). Almanac stored in flash, kept after power off/sleep without retention."
+        # parameters:
+        #   - name: almanac_full_update_payload
+        #     bit_width: 0
+        #     byte_positions: []
+        #     description: "2580-byte payload in 20-byte blocks. AlmanacHeader (20 bytes): 128 (count), AlmanacDate (2 bytes), GlobalCRC (4 bytes), RFU (13 bytes). Per SV (20 bytes): SvId (1), AlmanacContent (15), CA code (2), ModulationBitMask (1), ConstellationId (1). Must be complete blocks."
   lora:
     commands:
       SetLoraModulationParams:
@@ -2555,7 +2748,6 @@ categories:
           - - 2
             - '1:0'
           description: LF (32.768kHz) clock source selection (RC, XTal, External clock on DIO11)
-          optional: false
           enum:
             RC: 0
             XTAL: 1

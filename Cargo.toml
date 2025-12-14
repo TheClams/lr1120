@@ -11,6 +11,7 @@ keywords = ["driver", "LR1120", "LR1110", "LR11xx", "transceiver"]
 
 [features]
 defmt = ["dep:defmt"]
+gnss_v1 = []
 
 [dependencies]
 

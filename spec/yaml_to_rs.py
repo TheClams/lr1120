@@ -29,9 +29,14 @@ enum_remap : dict[str,str] = {
     'DstKeyId': 'KeyId',
     'DecKeyId': 'KeyId',
     'VerKeyId': 'KeyId',
+    'GpsStatus': 'AlmanacStatus',
+    'BeidouStatus': 'AlmanacStatus',
 }
 
-rsp_enums: list[str] = ['PacketType', 'HwType', 'LoraCr', 'WifiStandard', 'FrameType', 'MacOrigin', 'CeStatus']
+rsp_enums: list[str] = [
+    'PacketType', 'HwType', 'LoraCr', 'WifiStandard', 'FrameType', 'MacOrigin', 'CeStatus', 'GnssScanType',
+    'ContextError', 'FreqSearchSpace', 'SolverError', 'WnSource', 'AlmanacStatus'
+]
 
 @dataclass
 class BytePosition:
@@ -161,8 +166,6 @@ def get_rust_type(field: Field) -> str:
     """Get appropriate Rust type for a field"""
     if field.enum:
         t = snake_to_pascal(field.name)
-        if t == 'TriggerStart':
-            t = 'CaptureTrigger'
         return enum_remap.get(t,t)
     elif field.bit_width == 0 or '[' in field.name:
         return "&[u8]"  # Variable length
@@ -185,6 +188,8 @@ def gen_enum(field: Field) -> str:
     if not field.enum:
         return ''
     enum_name = snake_to_pascal(field.name)
+    if enum_name in enum_remap:
+        enum_name = enum_remap[enum_name]
     lines = ["",f"/// {field.description}"]
     more_derive = ', PartialOrd, Ord' if enum_name in ['Sf'] else ''
     lines.append(f"#[derive(Debug, Clone, Copy, PartialEq, Eq{more_derive})]")
@@ -442,7 +447,7 @@ def gen_rsp(cmd: Command, _category: str, advanced: bool = False) -> str:
     generic_rsp = cmd.name != "GetStatus" and len(fields)>0 and len(fields[0].byte_positions)>0 and fields[0].byte_positions[0].byte_index == 0
     
     lines = [f"/// Response for {cmd.name} command"]
-    if not generic_rsp:
+    if not generic_rsp and struct_name != 'GnssReadAlmanacStatusRsp':
         lines.append("#[derive(Default)]")
     lines.append(f"pub struct {struct_name}([u8; {buffer_size}]);")
     lines.append("")
@@ -536,6 +541,7 @@ def gen_rsp(cmd: Command, _category: str, advanced: bool = False) -> str:
             need_cast = field.signed or field.bit_width > 8
             if field.signed:
                 l += 'let raw = '
+            if field.enum : l += f'(';
             for (i,pos) in enumerate(reversed(field.byte_positions)):  # Process LSB first
                 msb, lsb = pos.get_bit_range_tuple()
 
@@ -559,7 +565,9 @@ def gen_rsp(cmd: Command, _category: str, advanced: bool = False) -> str:
                 if i+1 != len(field.byte_positions):
                     l+= ' |\n        '
                     if field.signed: l+= '    ';
-            if field.signed:
+            if field.enum:
+                l += ').into()'
+            elif field.signed:
                 bi = field.byte_positions[0].byte_index
                 mask = 1 << field.byte_positions[0].get_bit_range_tuple()[0]
                 l+= f';\n        raw as {return_type}'
@@ -615,6 +623,13 @@ def gen_rsp(cmd: Command, _category: str, advanced: bool = False) -> str:
         lines.append("        if self.rx_adc_offset() {defmt::write!(f, \"RxAdcOffset \")};")
         lines.append("    }")
         lines.append("}")
+    elif cmd.name == 'GnssReadAlmanacStatus':
+        lines.append("impl Default for GnssReadAlmanacStatusRsp {")
+        lines.append("    fn default() -> Self {")
+        lines.append("        let content : [u8; 54] = core::array::repeat(0);")
+        lines.append("        Self(content)")
+        lines.append("    }")
+        lines.append("}")
     
     return '\n'.join(lines)
 
@@ -645,26 +660,37 @@ def gen_file(category: str, commands: list[Command], output_dir: Path) -> None:
         
         for param in cmd.parameters:
             if param.enum:
+                if len(param.enum) == 1:
+                    continue
+
                 n = snake_to_pascal(param.name)
-                if n in enum_remap.keys() or len(param.enum) == 1:
-                    continue
+                if n in enum_remap.keys():
+                    n = enum_remap[n]
+
+                enum_names = list(param.enum.keys())
                 if n in enum_kind.keys():
-                    if list(param.enum.keys()) != enum_kind[n]:
-                        print(f'Conflicting type definition for {n} in {cmd.name}')
+                    if enum_names != enum_kind[n]:
+                        print(f'Conflicting type definition for {n} in {cmd.name} : {enum_names} vs {enum_kind[n]}')
+                    # else :
+                    #     print(f'Skipping enum {n} from {cmd.name}.{param.name}')
                     continue
-                enum_kind[n] = list(param.enum.keys())
+                enum_kind[n] = enum_names
+                # print(f'Adding enum {n} from params of {cmd.name}.{param.name}')
                 enums.append(gen_enum(param))
 
         for status in cmd.status_fields:
             if status.enum:
                 n = snake_to_pascal(status.name)
                 if n in enum_remap.keys():
-                    continue
+                    n = enum_remap[n]
                 if n in enum_kind.keys():
                     if list(status.enum.keys()) != enum_kind[n]:
-                        print(f'Conflicting type definition for {n} in {cmd.name}')
+                        print(f'Conflicting type definition for {n} in {cmd.name}.{status.name}')
+                    # else :
+                    #     print(f'Skipping enum {n} from status of {cmd.name}.{status.name}')
                     continue
                 enum_kind[n] = list(status.enum.keys())
+                # print(f'Adding enum {n} from {cmd.name}')
                 enums.append(gen_enum(status))
     
     # Add enums
