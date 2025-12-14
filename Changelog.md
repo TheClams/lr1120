@@ -3,6 +3,14 @@
 ## [0.2.0] - 2025-12-12
 
 ### Added
+  - Add API for GNSS and CryptoEngine
+
+### Fixed
+  - Fix wifi_get_result_* (were fully broken)
+
+## [0.2.0] - 2025-12-12
+
+### Added
   - Add API for WiFi scanning
   - Add API for TX/RX Buffer
 

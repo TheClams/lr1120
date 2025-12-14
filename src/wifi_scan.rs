@@ -27,6 +27,7 @@
 
 use core::marker::PhantomData;
 
+use embassy_time::Duration;
 use embedded_hal::digital::OutputPin;
 use embedded_hal_async::spi::SpiBus;
 
@@ -222,8 +223,10 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
     pub async fn wifi_get_result_short(&mut self, index: u8, nb: u8) -> Result<impl Iterator<Item=WifiReadResultsRsp>, Lr1120Error> {
         let req = wifi_read_results_req(index, nb, WifiResultFormat::Short);
         let nb_byte = nb.min(32) as usize * WIFI_RES_SHORT_SIZE as usize;
-        self.cmd_data_rw_l(&req, nb_byte).await?;
-        let iter : WifiResultsIter<'_, WifiReadResultsRsp> = WifiResultsIter::new(&self.buffer()[1..=nb_byte],nb);
+        self.cmd_wr(&req).await?;
+        self.wait_ready(Duration::from_millis(100)).await?;
+        self.rsp_rd(nb_byte).await?;
+        let iter : WifiResultsIter<'_, WifiReadResultsRsp> = WifiResultsIter::new(&self.buffer()[..nb_byte],nb);
         Ok(iter)
     }
 
@@ -232,8 +235,10 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
     pub async fn wifi_get_result_long(&mut self, index: u8, nb: u8) -> Result<impl Iterator<Item=WifiReadLongResultsRsp>, Lr1120Error> {
         let req = wifi_read_results_req(index, nb, WifiResultFormat::Long);
         let nb_byte = nb.min(32) as usize * WIFI_RES_LONG_SIZE as usize;
-        self.cmd_data_rw_l(&req, nb_byte).await?;
-        let iter : WifiResultsIter<'_, WifiReadLongResultsRsp> = WifiResultsIter::new(&self.buffer()[1..=nb_byte],nb);
+        self.cmd_wr(&req).await?;
+        self.wait_ready(Duration::from_millis(100)).await?;
+        self.rsp_rd(nb_byte).await?;
+        let iter : WifiResultsIter<'_, WifiReadLongResultsRsp> = WifiResultsIter::new(&self.buffer()[..nb_byte],nb);
         Ok(iter)
     }
 
@@ -242,8 +247,10 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
     pub async fn wifi_get_result_ext(&mut self, index: u8, nb: u8) -> Result<impl Iterator<Item=WifiReadExtendedResultsRsp>, Lr1120Error> {
         let req = wifi_read_results_req(index, nb, WifiResultFormat::Long);
         let nb_byte = nb.min(12) as usize * WIFI_RES_EXT_SIZE as usize;
-        self.cmd_data_rw_l(&req, nb_byte).await?;
-        let iter : WifiResultsIter<'_, WifiReadExtendedResultsRsp> = WifiResultsIter::new(&self.buffer()[1..=nb_byte],nb);
+        self.cmd_wr(&req).await?;
+        self.wait_ready(Duration::from_millis(100)).await?;
+        self.rsp_rd(nb_byte).await?;
+        let iter : WifiResultsIter<'_, WifiReadExtendedResultsRsp> = WifiResultsIter::new(&self.buffer()[..nb_byte],nb);
         Ok(iter)
     }
 
@@ -251,8 +258,10 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
     pub async fn wifi_get_result_country(&mut self, index: u8, nb: u8) -> Result<impl Iterator<Item=WifiReadCountryCodeResultsRsp>, Lr1120Error> {
         let req = wifi_read_country_code_results_req(index, nb);
         let nb_byte = nb.min(32) as usize * WIFI_RES_COUNTRY_SIZE as usize;
-        self.cmd_data_rw_l(&req, nb_byte).await?;
-        let iter : WifiResultsIter<'_, WifiReadCountryCodeResultsRsp> = WifiResultsIter::new(&self.buffer()[1..=nb_byte],nb);
+        self.cmd_wr(&req).await?;
+        self.wait_ready(Duration::from_millis(100)).await?;
+        self.rsp_rd(nb_byte).await?;
+        let iter : WifiResultsIter<'_, WifiReadCountryCodeResultsRsp> = WifiResultsIter::new(&self.buffer()[..nb_byte],nb);
         Ok(iter)
     }
 

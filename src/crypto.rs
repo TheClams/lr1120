@@ -9,12 +9,12 @@
 //! - [`ce_derive_key`](Lr1120::ce_derive_key) - Derives input value from the source key into the destination key
 //!
 //! ### Computation
-//! - [`ce_process_join_accept`]::(Lr1120::ce_process_join_accept) - Return decryption status and decrypted payload
-//! - [`ce_compute_cmac`]::(Lr1120::ce_compute_cmac) - Compute AES CMAC of the provided data
-//! - [`ce_verify_cmac`]::(Lr1120::ce_verify_cmac) - Verify AES CMAC of the provided data
-//! - [`ce_encrypt_lorawan`]::(Lr1120::ce_encrypt_lorawan) - Encrypt data for LoRaWAN operation (key limited to unicast/multicast)
-//! - [`ce_encrypt`]::(Lr1120::ce_encrypt) - Encrypt data for non-LoRaWAN operation
-//! - [`ce_decrypt`]::(Lr1120::ce_decrypt) - Encrypt data for non-LoRaWAN operation
+//! - [`ce_process_join_accept`](Lr1120::ce_process_join_accept) - Return decryption status and decrypted payload
+//! - [`ce_compute_cmac`](Lr1120::ce_compute_cmac) - Compute AES CMAC of the provided data
+//! - [`ce_verify_cmac`](Lr1120::ce_verify_cmac) - Verify AES CMAC of the provided data
+//! - [`ce_encrypt_lorawan`](Lr1120::ce_encrypt_lorawan) - Encrypt data for LoRaWAN operation (key limited to unicast/multicast)
+//! - [`ce_encrypt`](Lr1120::ce_encrypt) - Encrypt data for non-LoRaWAN operation
+//! - [`ce_decrypt`](Lr1120::ce_decrypt) - Encrypt data for non-LoRaWAN operation
 //!
 //! ### Utils
 //! - [`ce_store_to_flash`](Lr1120::ce_store_to_flash) - Store all keys and parameters from Crypto Engine into falsh memory
@@ -33,6 +33,7 @@ use super::{BusyPin, Lr1120, Lr1120Error};
 
 pub use crate::cmd::cmd_crypto::*;
 
+#[derive(Debug, Clone)]
 /// Struct holding result from an encryption/decryption
 pub struct CeDataRes<'a> {
     /// Status of the crupto operation (success or fail)
@@ -122,9 +123,10 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
         }
         let req = crypto_aes_encrypt01_req(key);
         self.cmd_data_wr(&req, din).await?;
-        self.rsp_rd(din.len()).await?;
+        let rsp_len = din.len() + 1;
+        self.rsp_rd(rsp_len).await?;
         let status : CeStatus = self.buffer()[0].into();
-        let data = &self.buffer()[1..din.len()+1];
+        let data = &self.buffer()[1..rsp_len];
         Ok(CeDataRes{status, data})
     }
 
@@ -132,9 +134,10 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
     pub async fn ce_encrypt(&'_ mut self, key: KeyId, din: &[u8]) -> Result<CeDataRes<'_>, Lr1120Error> {
         let req = crypto_aes_encrypt_req(key);
         self.cmd_data_wr(&req, din).await?;
-        self.rsp_rd(din.len()).await?;
+        let rsp_len = din.len() + 1;
+        self.rsp_rd(rsp_len).await?;
         let status : CeStatus = self.buffer()[0].into();
-        let data = &self.buffer()[1..din.len()+1];
+        let data = &self.buffer()[1..rsp_len];
         Ok(CeDataRes{status, data})
     }
 
@@ -142,9 +145,10 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
     pub async fn ce_decrypt(&'_ mut self, key: KeyId, din: &[u8]) -> Result<CeDataRes<'_>, Lr1120Error> {
         let req = crypto_aes_decrypt_req(key);
         self.cmd_data_wr(&req, din).await?;
-        self.rsp_rd(din.len()).await?;
+        let rsp_len = din.len() + 1;
+        self.rsp_rd(rsp_len).await?;
         let status : CeStatus = self.buffer()[0].into();
-        let data = &self.buffer()[1..din.len()+1];
+        let data = &self.buffer()[1..rsp_len];
         Ok(CeDataRes{status, data})
     }
 
