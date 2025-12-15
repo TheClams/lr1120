@@ -1,6 +1,12 @@
 # Change Log
 
-## [0.2.0] - 2025-12-12
+## [0.4.0] - Unreleased
+
+### Fixed
+  - Fix some defmt code not compiling
+
+
+## [0.3.0] - 2025-12-14
 
 ### Added
   - Add API for GNSS and CryptoEngine

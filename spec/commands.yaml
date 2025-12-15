@@ -2524,55 +2524,55 @@ categories:
         description: Returns the pending errors that occurred since the last ClearErrors() or circuit startup
         parameters: []
         status_fields:
-        - name: lf_rc_calib_err
+        - name: lf_rc_calib
           bit_width: 1
           byte_positions:
           - - 1
             - '0'
           description: LF RC calibration error
-        - name: hf_rc_calib_err
+        - name: hf_rc_calib
           bit_width: 1
           byte_positions:
           - - 1
             - '1'
           description: HF RC calibration error
-        - name: adc_calib_err
+        - name: adc_calib
           bit_width: 1
           byte_positions:
           - - 1
             - '2'
           description: ADC calibration error
-        - name: pll_calib_err
+        - name: pll_calib
           bit_width: 1
           byte_positions:
           - - 1
             - '3'
           description: PLL calibration error
-        - name: img_calib_err
+        - name: img_calib
           bit_width: 1
           byte_positions:
           - - 1
             - '4'
           description: Image rejection calibration error
-        - name: hf_xosc_start_err
+        - name: hf_xosc_start
           bit_width: 1
           byte_positions:
           - - 1
             - '5'
           description: HF XOSC start error
-        - name: lf_xosc_start_err
+        - name: lf_xosc_start
           bit_width: 1
           byte_positions:
           - - 1
             - '6'
           description: LF XOSC start error
-        - name: pll_lock_err
+        - name: pll_lock
           bit_width: 1
           byte_positions:
           - - 1
             - '7'
           description: PLL lock error
-        - name: rx_adc_offset_err
+        - name: rx_adc_offset
           bit_width: 1
           byte_positions:
           - - 2
@@ -2670,13 +2670,13 @@ categories:
             LR1120: 2
             LR1121: 3
             BOOTLOADER: 223
-        - name: fw_major
+        - name: major
           bit_width: 8
           byte_positions:
           - - 3
             - '7:0'
           description: Firmware major version number
-        - name: fw_minor
+        - name: minor
           bit_width: 8
           byte_positions:
           - - 4

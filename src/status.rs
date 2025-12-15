@@ -386,7 +386,6 @@ impl defmt::Format for Intr {
         if self.error()               {defmt::write!(f, "Error ")};
         if self.cmd()                 {defmt::write!(f, "CmdError ")};
         if self.low_bat()             {defmt::write!(f, "LowBattery ")};
-        if self.pa()                  {defmt::write!(f, "PowerAmplifier ")};
         if self.preamble_detected()   {defmt::write!(f, "PreambleDetected ")};
         if self.cad_detected()        {defmt::write!(f, "CadDetected ")};
         if self.timeout()             {defmt::write!(f, "Timeout ")};

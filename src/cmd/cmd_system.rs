@@ -358,47 +358,47 @@ impl ErrorsRsp {
     }
 
     /// LF RC calibration error
-    pub fn lf_rc_calib_err(&self) -> bool {
+    pub fn lf_rc_calib(&self) -> bool {
         self.0[1] & 0x1 != 0
     }
 
     /// HF RC calibration error
-    pub fn hf_rc_calib_err(&self) -> bool {
+    pub fn hf_rc_calib(&self) -> bool {
         (self.0[1] >> 1) & 0x1 != 0
     }
 
     /// ADC calibration error
-    pub fn adc_calib_err(&self) -> bool {
+    pub fn adc_calib(&self) -> bool {
         (self.0[1] >> 2) & 0x1 != 0
     }
 
     /// PLL calibration error
-    pub fn pll_calib_err(&self) -> bool {
+    pub fn pll_calib(&self) -> bool {
         (self.0[1] >> 3) & 0x1 != 0
     }
 
     /// Image rejection calibration error
-    pub fn img_calib_err(&self) -> bool {
+    pub fn img_calib(&self) -> bool {
         (self.0[1] >> 4) & 0x1 != 0
     }
 
     /// HF XOSC start error
-    pub fn hf_xosc_start_err(&self) -> bool {
+    pub fn hf_xosc_start(&self) -> bool {
         (self.0[1] >> 5) & 0x1 != 0
     }
 
     /// LF XOSC start error
-    pub fn lf_xosc_start_err(&self) -> bool {
+    pub fn lf_xosc_start(&self) -> bool {
         (self.0[1] >> 6) & 0x1 != 0
     }
 
     /// PLL lock error
-    pub fn pll_lock_err(&self) -> bool {
+    pub fn pll_lock(&self) -> bool {
         (self.0[1] >> 7) & 0x1 != 0
     }
 
     /// RX ADC offset error
-    pub fn rx_adc_offset_err(&self) -> bool {
+    pub fn rx_adc_offset(&self) -> bool {
         self.0[2] & 0x1 != 0
     }
     /// 16 bits value
@@ -493,12 +493,12 @@ impl VersionRsp {
     }
 
     /// Firmware major version number
-    pub fn fw_major(&self) -> u8 {
+    pub fn major(&self) -> u8 {
         self.0[3]
     }
 
     /// Firmware minor version number
-    pub fn fw_minor(&self) -> u8 {
+    pub fn minor(&self) -> u8 {
         self.0[4]
     }
 }
