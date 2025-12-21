@@ -244,7 +244,7 @@ pub const IRQ_MASK_ADDR_ERROR          : u32 = 0x02000000;
 /// Only to be used for timestamping, not for changing mode or re-configuring the device.
 pub const IRQ_MASK_RX_TIMESTAMP        : u32 = 0x08000000;
 /// last GNSS command was aborted
-pub const IRQ_MASK_GNSS_ABORT          : u32 = 0x08000000;
+pub const IRQ_MASK_GNSS_ABORT          : u32 = 0x10000000;
 
 /// Mask to enable all interrupt usefull for LoRa TX/RX (preamble detected, header ok/err, tx/rx done, timeout, CRC error)
 pub const IRQ_MASK_LORA_TXRX : u32 =
@@ -260,6 +260,13 @@ pub const IRQ_MASK_FSK_TXRX : u32 =
     IRQ_MASK_RX_DONE | IRQ_MASK_TX_DONE |
     IRQ_MASK_LEN_ERROR |
     IRQ_MASK_TIMEOUT | IRQ_MASK_CRC_ERROR;
+
+/// Mask to check all possible source of reception error
+pub const IRQ_MASK_RX_ERROR : u32 =
+    IRQ_MASK_HEADER_ERR |
+    IRQ_MASK_CRC_ERROR |
+    IRQ_MASK_LEN_ERROR |
+    IRQ_MASK_ADDR_ERROR;
 
 #[derive(Default, Clone, Copy)]
 pub struct Intr(u32);
@@ -366,6 +373,10 @@ impl Intr {
     /// Returns true if the packet was received with a wrong address match interrupt has been raised
     pub fn addr_error(&self) -> bool {
         (self.0 & IRQ_MASK_ADDR_ERROR) != 0
+    }
+    /// True if reception error occured (Address/Length/Header/CRC)
+    pub fn rx_error(&self) -> bool {
+        (self.0 & IRQ_MASK_RX_ERROR) != 0
     }
 }
 

@@ -1,6 +1,19 @@
 # Change Log
 
-## [0.4.0] - Unreleased
+## [0.5.0] - Unreleased
+
+### Added
+  - Add API for rx_stats and packet status (LoRa/FSK)
+  - Add method to irq to check any rx error (length, address, header, crc)
+
+### Changed
+  - `clear_irqs` now accept an Option which default to all IRQs
+
+### Fixed
+  - Fix IRQ mask for GNNS abort
+
+
+## [0.4.0] - 2025-12-19
 
 ### Fixed
   - Fix some defmt code not compiling

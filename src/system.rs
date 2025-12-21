@@ -12,7 +12,7 @@
 //! - [`get_version`](Lr1120::get_version) - Get chip firmware version information
 //! - [`get_chip_eui`](Lr1120::get_chip_eui) - Read Chip EUI
 //! - [`get_join_eui`](Lr1120::get_join_eui) - Read Semtech Join EUI
-//! - [`clear_irqs`](Lr1120::clear_irqs) - Clear specific interrupt flags
+//! - [`clear_irqs`](Lr1120::clear_irqs) - Clear irqs with an optional mask
 //!
 //! ### Chip Mode and Power Management
 //! - [`set_chip_mode`](Lr1120::set_chip_mode) - Set chip operational mode (sleep, standby, FS, TX, RX)
@@ -174,9 +174,11 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
         Ok(rsp.semtech_join_eui())
     }
 
-    /// Set the RF channel (in Hz)
-    pub async fn clear_irqs(&mut self, intr: Intr) -> Result<(), Lr1120Error> {
-        let req = clear_irq_cmd(intr.value());
+    /// Clear irqs with an optional mask.
+    /// If no mask is provided, all IRQs are cleared
+    pub async fn clear_irqs(&mut self, intr: Option<Intr>) -> Result<(), Lr1120Error> {
+        let msk = intr.map(|i| i.value()).unwrap_or(0xFFFFFFFF);
+        let req = clear_irq_cmd(msk);
         self.cmd_wr(&req).await
     }
 
