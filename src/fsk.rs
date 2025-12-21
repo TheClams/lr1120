@@ -43,10 +43,10 @@
 //!
 //! ## Available Methods
 //!
-//! ### Core Configuration
 //! - [`set_fsk_modulation`](Lr1120::set_fsk_modulation) - Configure bitrate, pulse shaping, bandwidth, and frequency deviation
 //! - [`set_fsk_packet`](Lr1120::set_fsk_packet) - Set packet parameters (preamble, length format, CRC, addressing, whitening)
 //! - [`set_fsk_syncword`](Lr1120::set_fsk_syncword) - Configure synchronization word value
+//! - [`get_fsk_packet_status`](Lr1120::get_fsk_packet_status) - Read FSK packet status: RSSI, packet length, error source (address, CRC, length, ...)
 
 use embedded_hal::digital::OutputPin;
 use embedded_hal_async::spi::SpiBus;
@@ -77,4 +77,13 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
         let req = set_fsk_sync_word_cmd(syncword);
         self.cmd_wr(&req).await
     }
+
+    /// Read FSK packet status: RSSI, packet length, error source (address, CRC, length, ...)
+    pub async fn get_fsk_packet_status(&mut self) -> Result<FskPacketStatusRsp, Lr1120Error> {
+        let req = get_fsk_packet_status_req();
+        let mut rsp = FskPacketStatusRsp::new();
+        self.cmd_rd(&req, rsp.as_mut()).await?;
+        Ok(rsp)
+    }
+
 }

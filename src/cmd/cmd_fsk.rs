@@ -1,5 +1,6 @@
 // Fsk commands API
 
+use crate::status::Status;
 
 /// Bit rate precision: HIGH indicates 8 fractional bits precision, while BASIC indicates no fractional bits
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -190,4 +191,78 @@ pub fn set_fsk_whit_params_cmd(seed: u16) -> [u8; 4] {
     cmd[2] |= ((seed >> 8) & 0xFF) as u8;
     cmd[3] |= (seed & 0xFF) as u8;
     cmd
+}
+
+/// Returns link quality informations on last received packet
+pub fn get_fsk_packet_status_req() -> [u8; 2] {
+    [0x02, 0x04]
+}
+
+// Response structs
+
+/// Response for GetFskPacketStatus command
+#[derive(Default)]
+pub struct FskPacketStatusRsp([u8; 5]);
+
+impl FskPacketStatusRsp {
+    /// Create a new response buffer
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Return Status
+    pub fn status(&mut self) -> Status {
+        self.0[0].into()
+    }
+
+    /// RSSI captured after synchornisation (in -0.5dBm)
+    pub fn rssi_sync(&self) -> u8 {
+        self.0[1]
+    }
+
+    /// RSSI averaged on the whole packet (in -0.5dBm)
+    pub fn rssi_avg(&self) -> u8 {
+        self.0[2]
+    }
+
+    /// Length of the packet received
+    pub fn rx_len(&self) -> u8 {
+        self.0[3]
+    }
+
+    /// True when the packet was rejected due to an invalid address
+    pub fn addr_err(&self) -> bool {
+        (self.0[4] >> 5) & 0x1 != 0
+    }
+
+    /// True when the received CRC failed
+    pub fn crc_err(&self) -> bool {
+        (self.0[4] >> 4) & 0x1 != 0
+    }
+
+    /// True when the packet was rejected due to a payload size higher than the max defined in payload_len
+    pub fn len_err(&self) -> bool {
+        (self.0[4] >> 3) & 0x1 != 0
+    }
+
+    /// True when the packet (TX/RX was aborted)
+    pub fn abort_err(&self) -> bool {
+        (self.0[4] >> 2) & 0x1 != 0
+    }
+
+    /// True when a packet was received
+    pub fn pkt_rcvd(&self) -> bool {
+        (self.0[4] >> 1) & 0x1 != 0
+    }
+
+    /// True when a packet was sent
+    pub fn pkt_sent(&self) -> bool {
+        self.0[4] & 0x1 != 0
+    }
+}
+
+impl AsMut<[u8]> for FskPacketStatusRsp {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
 }

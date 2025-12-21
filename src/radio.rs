@@ -120,6 +120,14 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
         self.cmd_wr(&req).await
     }
 
+    /// Read RX stats
+    pub async fn get_rx_stats(&mut self) -> Result<StatsRsp, Lr1120Error> {
+        let req = get_stats_req();
+        let mut rsp = StatsRsp::new();
+        self.cmd_rd(&req, rsp.as_mut()).await?;
+        Ok(rsp)
+    }
+
     /// Clear RX stats
     pub async fn clear_rx_stats(&mut self) -> Result<(), Lr1120Error> {
         self.cmd_wr(&reset_stats_cmd()).await

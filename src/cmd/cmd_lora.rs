@@ -252,6 +252,11 @@ pub fn get_lora_rx_header_infos_req() -> [u8; 2] {
     [0x02, 0x30]
 }
 
+/// Returns link quality informations on last received packet
+pub fn get_lora_packet_status_req() -> [u8; 2] {
+    [0x02, 0x04]
+}
+
 /// Sets the ranging ID for this slave device. Defines which address bytes are checked against master's request.
 pub fn set_ranging_addr_cmd(addr: u32, check_length: CheckLength) -> [u8; 7] {
     let mut cmd = [0u8; 7];
@@ -344,6 +349,43 @@ impl LoraRxHeaderInfosRsp {
 }
 
 impl AsMut<[u8]> for LoraRxHeaderInfosRsp {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}
+
+/// Response for GetLoraPacketStatus command
+#[derive(Default)]
+pub struct LoraPacketStatusRsp([u8; 4]);
+
+impl LoraPacketStatusRsp {
+    /// Create a new response buffer
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Return Status
+    pub fn status(&mut self) -> Status {
+        self.0[0].into()
+    }
+
+    /// RSSI averaged on the whole packet (in -0.5dBm)
+    pub fn rssi_pkt(&self) -> u8 {
+        self.0[1]
+    }
+
+    /// Signal-to-noise ratio (SNR) estimated on the whole packet (in 0.25dB)
+    pub fn snr_pkt(&self) -> u8 {
+        self.0[2]
+    }
+
+    /// Estimation of the LoRa signal RSSI (i.e. without the noise power, in -0.5 dBm)
+    pub fn signal_rssi(&self) -> u8 {
+        self.0[3]
+    }
+}
+
+impl AsMut<[u8]> for LoraPacketStatusRsp {
     fn as_mut(&mut self) -> &mut [u8] {
         &mut self.0
     }

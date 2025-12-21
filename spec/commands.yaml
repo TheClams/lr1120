@@ -659,6 +659,47 @@ categories:
           - - 3
             - '7:0'
           description: 'Whitening seed. Default: 0x0100. For SX128x compatibility use 0x0001.'
+      GetFskPacketStatus:
+        opcode: 0x204
+        description: Returns link quality informations on last received packet
+        parameters: []
+        status_fields:
+        - name: rssi_sync
+          bit_width: 8
+          byte_positions: [[1, "7:0"]]
+          description: RSSI captured after synchornisation (in -0.5dBm)
+        - name: rssi_avg
+          bit_width: 8
+          byte_positions: [[2, "7:0"]]
+          description: RSSI averaged on the whole packet (in -0.5dBm)
+        - name: rx_len
+          bit_width: 8
+          byte_positions: [[3, "7:0"]]
+          description: Length of the packet received
+        - name: addr_err
+          bit_width: 1
+          byte_positions: [[4, "5"]]
+          description: True when the packet was rejected due to an invalid address
+        - name: crc_err
+          bit_width: 1
+          byte_positions: [[4, "4"]]
+          description: True when the received CRC failed
+        - name: len_err
+          bit_width: 1
+          byte_positions: [[4, "3"]]
+          description: True when the packet was rejected due to a payload size higher than the max defined in payload_len
+        - name: abort_err
+          bit_width: 1
+          byte_positions: [[4, "2"]]
+          description: True when the packet (TX/RX was aborted)
+        - name: pkt_rcvd
+          bit_width: 1
+          byte_positions: [[4, "1"]]
+          description: True when a packet was received
+        - name: pkt_sent
+          bit_width: 1
+          byte_positions: [[4, "0"]]
+          description: True when a packet was sent
   gnss:
     commands:
       GnssSetConstellationToUse:
@@ -1732,6 +1773,23 @@ categories:
             CR5_HAM_45_LI: 5
             CR6_HAM_23_LI: 6
             CR7_HAM_12_LI: 7
+      GetLoraPacketStatus:
+        opcode: 0x204
+        description: Returns link quality informations on last received packet
+        parameters: []
+        status_fields:
+        - name: rssi_pkt
+          bit_width: 8
+          byte_positions: [[1, "7:0"]]
+          description: RSSI averaged on the whole packet (in -0.5dBm)
+        - name: snr_pkt
+          bit_width: 8
+          byte_positions: [[2, "7:0"]]
+          description: Signal-to-noise ratio (SNR) estimated on the whole packet (in 0.25dB)
+        - name: signal_rssi
+          bit_width: 8
+          byte_positions: [[3, "7:0"]]
+          description: Estimation of the LoRa signal RSSI (i.e. without the noise power, in -0.5 dBm)
       SetRangingAddr:
         opcode: 540
         description: Sets the ranging ID for this slave device. Defines which address bytes are checked against master's request.
@@ -2106,7 +2164,7 @@ categories:
           ResetStats command.
         parameters: []
         status_fields:
-        - name: nb_pkt_received
+        - name: pkt_rx
           bit_width: 16
           byte_positions:
           - - 1
@@ -2114,7 +2172,7 @@ categories:
           - - 2
             - '7:0'
           description: Total number of received packets
-        - name: nb_pkt_crc_error
+        - name: crc_error
           bit_width: 16
           byte_positions:
           - - 3
@@ -2122,22 +2180,22 @@ categories:
           - - 4
             - '7:0'
           description: Total number of received packets with CRC error
-        - name: data1
+        - name: header_error
           bit_width: 16
           byte_positions:
           - - 5
             - '7:0'
           - - 6
             - '7:0'
-          description: 'Packet type dependent. (G)FSK: NbPacketLengthError, LoRa: NbPktHeaderErr'
-        - name: data2
+          description: 'Header error. In LoRa, a header error is detect when the checksum fails, while in FSK, the header is in error only when the packet length is higher than the programmed length.'
+        - name: false_sync
           bit_width: 16
           byte_positions:
           - - 7
             - '7:0'
           - - 8
             - '7:0'
-          description: 'Packet type dependent. (G)FSK: 0x00, LoRa: NbPktFalseSync'
+          description: 'False synchronisation counter (LoRa only)'
       ResetStats:
         opcode: 512
         description: Resets the internal statistics of received RF packets

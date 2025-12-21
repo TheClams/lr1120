@@ -337,25 +337,25 @@ impl StatsRsp {
     }
 
     /// Total number of received packets
-    pub fn nb_pkt_received(&self) -> u16 {
+    pub fn pkt_rx(&self) -> u16 {
         (self.0[2] as u16) |
         ((self.0[1] as u16) << 8)
     }
 
     /// Total number of received packets with CRC error
-    pub fn nb_pkt_crc_error(&self) -> u16 {
+    pub fn crc_error(&self) -> u16 {
         (self.0[4] as u16) |
         ((self.0[3] as u16) << 8)
     }
 
-    /// Packet type dependent. (G)FSK: NbPacketLengthError, LoRa: NbPktHeaderErr
-    pub fn data1(&self) -> u16 {
+    /// Header error. In LoRa, a header error is detect when the checksum fails, while in FSK, the header is in error only when the packet length is higher than the programmed length.
+    pub fn header_error(&self) -> u16 {
         (self.0[6] as u16) |
         ((self.0[5] as u16) << 8)
     }
 
-    /// Packet type dependent. (G)FSK: 0x00, LoRa: NbPktFalseSync
-    pub fn data2(&self) -> u16 {
+    /// False synchronisation counter (LoRa only)
+    pub fn false_sync(&self) -> u16 {
         (self.0[8] as u16) |
         ((self.0[7] as u16) << 8)
     }

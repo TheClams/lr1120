@@ -34,6 +34,7 @@
 //!
 //! ### Status and Statistics
 //! - [`get_lora_rx_header_info`](Lr1120::get_lora_rx_header_info) - Get RX header information (CRC and coding rate)
+//! - [`get_lora_packet_status`](Lr1120::get_lora_packet_status) - Get RSSI/SNR on the last received packet
 //!
 //! ### Channel Activity Detection (CAD)
 //! - [`set_lora_cad_params`](Lr1120::set_lora_cad_params) - Configure CAD parameters for listen-before-talk
@@ -337,6 +338,14 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
     pub async fn get_lora_rx_header_info(&mut self) -> Result<LoraRxHeaderInfosRsp, Lr1120Error> {
         let req = get_lora_rx_header_infos_req();
         let mut rsp = LoraRxHeaderInfosRsp::new();
+        self.cmd_rd(&req, rsp.as_mut()).await?;
+        Ok(rsp)
+    }
+
+    /// Read LoRa RX stats (RSSI/SNR)
+    pub async fn get_lora_packet_status(&mut self) -> Result<LoraPacketStatusRsp, Lr1120Error> {
+        let req = get_lora_packet_status_req();
+        let mut rsp = LoraPacketStatusRsp::new();
         self.cmd_rd(&req, rsp.as_mut()).await?;
         Ok(rsp)
     }
