@@ -153,6 +153,15 @@ impl CmdBuffer {
         self.0[1] = 0;
     }
 
+    /// Set first n byte to 0
+    /// Usefull when reading back a response
+    pub fn clear(&mut self, len: usize) {
+        // for x in self.0.iter_mut().skip(1).take(len+1) {
+        for x in self.0.iter_mut().skip(1).take(len) {
+            *x = 0;
+        }
+    }
+
     /// Return the first two bytes as a status (after sending a command)
     pub fn status(&self) -> Status {
         Status::from_array([self.0[0],self.0[1]])
@@ -357,7 +366,8 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
 
     /// Read response from SPI into local buffer
     pub async fn rsp_rd(&mut self, rsp_len: usize) -> Result<(), Lr1120Error> {
-        self.buffer.nop();
+        self.buffer.clear(rsp_len);
+        self.nss.set_low().map_err(|_| Lr1120Error::Pin)?;
         // Add extra byte on the respnse length to take into acocunt the first status byte ?
         self.spi
             .transfer_in_place(&mut self.buffer.as_mut()[..rsp_len+1]).await
@@ -369,6 +379,7 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
     /// Read response from SPI into provided buffer
     /// First two bytes must be initialized to 0
     pub async fn rsp_rd_to(&mut self, rsp:  &mut [u8]) -> Result<(), Lr1120Error> {
+        self.nss.set_low().map_err(|_| Lr1120Error::Pin)?;
         self.spi
             .transfer_in_place(rsp).await
             .map_err(|_| Lr1120Error::Spi)?;

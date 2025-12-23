@@ -35,6 +35,7 @@
 //!
 //! ### I/O Management
 //! - [`set_dio_irq`](Lr1120::set_dio_irq) - Configure a DIO pin for interrupt generation
+//! - [`set_dio_rf_switch`](Lr1120::set_dio_rf_switch) - Configure the DIO to control RF switches
 //!
 //! ### Register and Memory Access
 //! - [`rd_reg`](Lr1120::rd_reg) - Read a 32-bit register value
@@ -82,6 +83,102 @@ pub enum ChipMode {
     Tx,
     /// Set Chip in Receive mode
     Rx,
+}
+
+/// DIO number (allowed values are 5,6,7,8 or 10)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum DioNum {
+    Dio5 = 5,
+    Dio6 = 6,
+    Dio7 = 7,
+    Dio8 = 8,
+    Dio10 = 10,
+    None = 0
+}
+
+impl DioNum {
+    /// Create new Dio: 5,6,7,8 or 10
+    /// Any other value will return DioNum::None
+    pub fn new(num: u8) -> Self {
+        num.into()
+    }
+
+    /// Return a mask corresponding to the DIO (used by SetDioAsRfSwitch)
+    pub fn as_mask(&self) -> u8 {
+        match self {
+            DioNum::Dio5  => 1,
+            DioNum::Dio6  => 2,
+            DioNum::Dio7  => 4,
+            DioNum::Dio8  => 8,
+            DioNum::Dio10 => 16,
+            DioNum::None  => 0,
+        }
+    }
+}
+
+impl From<u8> for DioNum {
+    fn from(value: u8) -> Self {
+        match value {
+            5 => DioNum::Dio5,
+            6 => DioNum::Dio6,
+            7 => DioNum::Dio7,
+            8 => DioNum::Dio8,
+            10 => DioNum::Dio10,
+            _ => DioNum::None,
+        }
+    }
+}
+
+
+
+/// Configuration of which RF switch is connected to which DIO
+#[derive(Clone, Debug)]
+pub struct DioRfSwitchCfg {
+    pub tx_lf: DioNum,
+    pub tx_hp: DioNum,
+    pub tx_hf: DioNum,
+    pub rx_lf: DioNum,
+    pub rx_mf: DioNum,
+    pub rx_hf: DioNum,
+}
+
+impl DioRfSwitchCfg {
+    /// Create a configuration with only TX/RX RF switch in the low frequency band (Sub-GHz)
+    pub fn new_lf(tx: DioNum, rx: DioNum) -> Self {
+        Self {
+            tx_lf: tx,
+            tx_hp: tx,
+            tx_hf: DioNum::None,
+            rx_lf: rx,
+            rx_mf: DioNum::None,
+            rx_hf: DioNum::None,
+        }
+    }
+
+    /// Create a configuration with TX/RX RF switch for both low (Sub-GHz) and high (2.4GHz) frequency band
+    pub fn new_lf_hf(tx_lf: DioNum, rx_lf: DioNum, tx_hf: DioNum, rx_hf: DioNum) -> Self {
+        Self {
+            tx_lf, tx_hp: tx_lf, tx_hf,
+            rx_lf, rx_mf: DioNum::None, rx_hf,
+        }
+    }
+
+    /// Update configuration TX high power switch
+    pub fn with_tx_hp(self, tx_hp: DioNum) -> Self {
+        Self {
+            tx_lf: self.tx_lf, tx_hp, tx_hf: self.tx_hf,
+            rx_lf: self.rx_lf, rx_mf: self.rx_mf, rx_hf: self.rx_hf,
+        }
+    }
+
+    /// Update configuration with RF switch for GNSS band
+    pub fn with_gnss(self, rx_mf: DioNum) -> Self {
+        Self {
+            tx_lf: self.tx_lf, tx_hp: self.tx_hp, tx_hf: self.tx_hf,
+            rx_lf: self.rx_lf, rx_mf, rx_hf: self.rx_hf,
+        }
+    }
 }
 
 /// Define a frequency range [min..max] used for image calibration
@@ -226,6 +323,25 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
         self.cmd_wr(&req).await
     }
 
+    /// Configure the DIO to control RF switches
+    /// Drive_sleep allow to set up pull-up or pull-down on all enabled RF switches when chip goes into sleep
+    pub async  fn set_dio_rf_switch(&mut self, cfg: DioRfSwitchCfg, drive_sleep: bool) -> Result<(), Lr1120Error> {
+        let rfsw_tx_cfg    = cfg.tx_lf.as_mask();
+        let rfsw_tx_hp_cfg = cfg.tx_hp.as_mask();
+        let rfsw_tx_hf_cfg = cfg.tx_hf.as_mask();
+        let rfsw_rx_cfg    = cfg.rx_lf.as_mask();
+        let rfsw_gnss_cfg  = cfg.rx_mf.as_mask();
+        let rfsw_wifi_cfg  = cfg.rx_hf.as_mask();
+        let rfsw_enable = rfsw_tx_cfg | rfsw_tx_hp_cfg | rfsw_tx_hf_cfg | rfsw_rx_cfg | rfsw_gnss_cfg | rfsw_wifi_cfg;
+        let req = set_dio_as_rf_switch_cmd(rfsw_enable, 0, rfsw_rx_cfg, rfsw_tx_cfg, rfsw_tx_hp_cfg, rfsw_tx_hf_cfg, rfsw_gnss_cfg, rfsw_wifi_cfg);
+        self.cmd_wr(&req).await?;
+        // Configure pull-up/down for all enabled switch
+        let drive_en = if drive_sleep {rfsw_enable} else {0};
+        let req = drive_dios_in_sleep_mode_cmd(drive_en);
+        self.cmd_wr(&req).await
+    }
+
+
     /// Configure the LF clock
     pub async fn set_lf_clk(&mut self, sel: LfClock, busy_release: bool) -> Result<(), Lr1120Error> {
         let req = config_lf_clock_cmd(sel, busy_release);
@@ -285,20 +401,20 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
         self.cmd_wr(&clear_rx_buffer_cmd()).await
     }
 
-    /// Read data from the RX buffer
+    /// Read data from the RX buffer into a provided buffer
+    /// The provided buffer must zeroed contains one extra byte at the beginning for the statud
     pub async fn rd_rx_buffer_to(&mut self, offset: u8, buffer: &mut[u8]) -> Result<(), Lr1120Error> {
-        let req = read_buffer8_cmd(offset, buffer.len() as u8);
-        self.cmd_data_rw(&req, buffer).await
+        let nb_byte = buffer.len() as u8;
+        let req = read_buffer8_cmd(offset, nb_byte);
+        self.cmd_rd(&req, buffer).await
     }
 
     /// Read data from the LR1120 buffer to the local buffer
     pub async fn rd_rx_buffer(&mut self, offset: u8, len: u8) -> Result<(), Lr1120Error> {
         let req = read_buffer8_cmd(offset, len);
-        self.cmd_wr_begin(&req).await?;
-        self.spi
-            .transfer_in_place(&mut self.buffer.data_mut()[..len as usize]).await
-            .map_err(|_| Lr1120Error::Spi)?;
-        self.nss.set_high().map_err(|_| Lr1120Error::Pin)
+        self.cmd_wr(&req).await?;
+        self.wait_ready(Duration::from_millis(1)).await?;
+        self.rsp_rd(len.into()).await
     }
 
     /// Read a register value
@@ -318,7 +434,7 @@ impl<O,SPI, M> Lr1120<O,SPI, M> where
         self.cmd_wr(&req).await?;
         self.wait_ready(Duration::from_millis(1)).await?;
         self.nss.set_low().map_err(|_| Lr1120Error::Pin)?;
-        self.buffer.nop();
+        self.buffer.clear(4*nb32 as usize);
         let rsp_buf = &mut self.buffer.0[..4*nb32 as usize];
         self.spi
             .transfer_in_place(rsp_buf).await

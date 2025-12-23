@@ -5,13 +5,14 @@
 ### Added
   - Add API for rx_stats and packet status (LoRa/FSK)
   - Add method to irq to check any rx error (length, address, header, crc)
+  - Add API to configure DIO controlling RF switches
 
 ### Changed
   - `clear_irqs` now accept an Option which default to all IRQs
 
 ### Fixed
+  - Fix RdBuffer
   - Fix IRQ mask for GNNS abort
-
 
 ## [0.4.0] - 2025-12-19
 

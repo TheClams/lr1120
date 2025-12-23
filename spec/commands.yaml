@@ -3008,10 +3008,7 @@ categories:
           byte_positions:
           - - 2
             - '7:0'
-          description: '0: No pull-up or pull-down configured (default), 1: Pull-up or pull-down added on configured RF switch and IRQ DIOs in sleep mode based on DIO state in RC mode'
-          enum:
-            DISABLED: 0
-            ENABLED: 1
+          description: 'Bit mask per dio to add pull-up or pull-down added in sleep mode'
       GetTemp:
         opcode: 282
         description: Returns the temperature measurement from the built-in temperature sensor. Uses XOSC mode, so SetTcxoMode must be called first if TCXO is connected.

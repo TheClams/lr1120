@@ -62,14 +62,6 @@ pub enum StandbyMode {
     Xosc = 1,
 }
 
-/// 0: No pull-up or pull-down configured (default), 1: Pull-up or pull-down added on configured RF switch and IRQ DIOs in sleep mode based on DIO state in RC mode
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub enum Enable {
-    Disabled = 0,
-    Enabled = 1,
-}
-
 /// 0: Use LDO in all modes (default), 1: Automatically switch on DC-DC converter in FS, RX and TX modes, other values RFU
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
@@ -274,12 +266,12 @@ pub fn set_dio_as_rf_switch_cmd(rfsw_enable: u8, rfsw_stby_cfg: u8, rfsw_rx_cfg:
 }
 
 /// Enables or disables pull-up/down resistors on configured RF switch and IRQ line DIOs when in sleep mode. Saves power when RF switches are supplied by LR1120 DIOs.
-pub fn drive_dios_in_sleep_mode_cmd(enable: Enable) -> [u8; 3] {
+pub fn drive_dios_in_sleep_mode_cmd(enable: u8) -> [u8; 3] {
     let mut cmd = [0u8; 3];
     cmd[0] = 0x01;
     cmd[1] = 0x2A;
 
-    cmd[2] |= enable as u8;
+    cmd[2] |= enable;
     cmd
 }
 
